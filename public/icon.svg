@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" rx="112" fill="#2563eb"/>
+  <path d="M256 112L112 208v192h288V208L256 112z" fill="#ffffff"/>
+  <path d="M256 160l-96 64v128h192V224l-96-64z" fill="#2563eb"/>
+  <text x="50%" y="55%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="80" font-weight="bold">CPLA</text>
+  <text x="50%" y="75%" dominant-baseline="middle" text-anchor="middle" fill="#ffffff" font-family="sans-serif" font-size="60" font-weight="bold">1er D</text>
+</svg>

@@ -1,0 +1,123 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "User ID" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Subject": {
+      "title": "Subject",
+      "description": "A subject in the curriculum",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "coefficient": { "type": "number" },
+        "grade": { "type": "number", "description": "Estimated grade out of 20" },
+        "totalChapters": { "type": "number" },
+        "completedChapters": { "type": "number" },
+        "color": { "type": "string" },
+        "icon": { "type": "string" }
+      },
+      "required": ["name", "coefficient", "grade", "totalChapters", "completedChapters", "color", "icon"]
+    },
+    "Chapter": {
+      "title": "Chapter",
+      "description": "A chapter within a subject",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "mastered"] },
+        "masteredAt": { "type": "timestamp" }
+      },
+      "required": ["title", "status"]
+    },
+    "StudySession": {
+      "title": "StudySession",
+      "description": "A recorded study session",
+      "type": "object",
+      "properties": {
+        "subjectId": { "type": "string" },
+        "subjectName": { "type": "string" },
+        "durationMinutes": { "type": "number" },
+        "notes": { "type": "string" },
+        "date": { "type": "timestamp" },
+        "uid": { "type": "string" }
+      },
+      "required": ["subjectId", "subjectName", "durationMinutes", "date", "uid"]
+    },
+    "Roadmap": {
+      "title": "Roadmap",
+      "description": "AI generated study roadmap",
+      "type": "object",
+      "properties": {
+        "targetGrade": { "type": "number" },
+        "availability": { "type": "string" },
+        "plan": { "type": "string", "description": "JSON stringified plan" },
+        "generatedAt": { "type": "timestamp" },
+        "uid": { "type": "string" }
+      },
+      "required": ["targetGrade", "availability", "plan", "generatedAt", "uid"]
+    },
+    "Quota": {
+      "title": "Quota",
+      "description": "User's daily quota usage",
+      "type": "object",
+      "properties": {
+        "scansUsed": { "type": "number" },
+        "date": { "type": "string" }
+      },
+      "required": ["scansUsed", "date"]
+    },
+    "Scan": {
+      "title": "Scan",
+      "description": "A generated study pack from a scan",
+      "type": "object",
+      "properties": {
+        "createdAt": { "type": "timestamp" },
+        "summary": { "type": "string" },
+        "interactivePrompt": { "type": "string" },
+        "exercises": { "type": "array" },
+        "imageCount": { "type": "number" }
+      },
+      "required": ["createdAt", "summary", "interactivePrompt", "exercises", "imageCount"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "UserProfile" },
+      "description": "User profiles"
+    },
+    "/users/{userId}/subjects/{subjectId}": {
+      "schema": { "$ref": "Subject" },
+      "description": "User's subjects"
+    },
+    "/users/{userId}/subjects/{subjectId}/chapters/{chapterId}": {
+      "schema": { "$ref": "Chapter" },
+      "description": "User's chapters for a subject"
+    },
+    "/users/{userId}/sessions/{sessionId}": {
+      "schema": { "$ref": "StudySession" },
+      "description": "User's study sessions"
+    },
+    "/users/{userId}/roadmaps/{roadmapId}": {
+      "schema": { "$ref": "Roadmap" },
+      "description": "User's generated roadmaps"
+    },
+    "/users/{userId}/quotas/{quotaId}": {
+      "schema": { "$ref": "Quota" },
+      "description": "User's daily quotas"
+    },
+    "/users/{userId}/scans/{scanId}": {
+      "schema": { "$ref": "Scan" },
+      "description": "User's generated study packs from scans"
+    }
+  }
+}

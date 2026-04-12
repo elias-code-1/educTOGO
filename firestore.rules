@@ -1,0 +1,182 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    function hasOnlyAllowedFields(allowedFields) {
+      return request.resource.data.keys().hasOnly(allowedFields);
+    }
+    
+    function hasRequiredFields(requiredFields) {
+      return request.resource.data.keys().hasAll(requiredFields);
+    }
+    
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == request.auth.uid;
+    }
+    
+    function uidNotModified() {
+      return !('uid' in request.resource.data) || request.resource.data.uid == resource.data.uid;
+    }
+
+    // ===============================================================
+    // Domain Validators
+    // ===============================================================
+
+    function isValidUserProfile() {
+      let allowed = ['uid', 'email', 'displayName', 'photoURL', 'createdAt'];
+      let required = ['uid', 'email', 'createdAt'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100 &&
+             data.email is string && data.email.size() > 0 && data.email.size() < 100 &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() < 100)) &&
+             (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() < 500)) &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidSubject() {
+      let allowed = ['name', 'coefficient', 'grade', 'totalChapters', 'completedChapters', 'color', 'icon'];
+      let required = ['name', 'coefficient', 'grade', 'totalChapters', 'completedChapters', 'color', 'icon'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.name is string && data.name.size() > 0 && data.name.size() < 100 &&
+             data.coefficient is number && data.coefficient > 0 && data.coefficient <= 10 &&
+             data.grade is number && data.grade >= 0 && data.grade <= 20 &&
+             data.totalChapters is number && data.totalChapters > 0 &&
+             data.completedChapters is number && data.completedChapters >= 0 && data.completedChapters <= data.totalChapters &&
+             data.color is string && data.color.size() > 0 && data.color.size() < 50 &&
+             data.icon is string && data.icon.size() > 0 && data.icon.size() < 50;
+    }
+
+    function isValidChapter() {
+      let allowed = ['title', 'status', 'masteredAt'];
+      let required = ['title', 'status'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.title is string && data.title.size() > 0 && data.title.size() < 200 &&
+             data.status in ['pending', 'mastered'] &&
+             (!('masteredAt' in data) || data.masteredAt is timestamp);
+    }
+
+    function isValidStudySession() {
+      let allowed = ['subjectId', 'subjectName', 'durationMinutes', 'notes', 'date', 'uid'];
+      let required = ['subjectId', 'subjectName', 'durationMinutes', 'date', 'uid'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.subjectId is string && data.subjectId.size() > 0 && data.subjectId.size() < 100 &&
+             data.subjectName is string && data.subjectName.size() > 0 && data.subjectName.size() < 100 &&
+             data.durationMinutes is number && data.durationMinutes > 0 && data.durationMinutes <= 1440 &&
+             (!('notes' in data) || (data.notes is string && data.notes.size() <= 1000)) &&
+             data.date is timestamp &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100;
+    }
+
+    function isValidRoadmap() {
+      let allowed = ['targetGrade', 'availability', 'plan', 'generatedAt', 'uid'];
+      let required = ['targetGrade', 'availability', 'plan', 'generatedAt', 'uid'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.targetGrade is number && data.targetGrade >= 0 && data.targetGrade <= 20 &&
+             data.availability is string && data.availability.size() <= 2000 &&
+             data.plan is string && data.plan.size() <= 100000 &&
+             data.generatedAt is timestamp &&
+             data.uid is string && data.uid.size() > 0 && data.uid.size() < 100;
+    }
+
+    function isValidQuota() {
+      let allowed = ['scansUsed', 'date'];
+      let required = ['scansUsed', 'date'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.scansUsed is number && data.scansUsed >= 0 &&
+             data.date is string && data.date.size() == 10;
+    }
+
+    function isValidScan() {
+      let allowed = ['createdAt', 'summary', 'interactivePrompt', 'exercises', 'imageCount'];
+      let required = ['createdAt', 'summary', 'interactivePrompt', 'exercises', 'imageCount'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             data.createdAt is timestamp &&
+             data.summary is string && data.summary.size() > 0 &&
+             data.interactivePrompt is string && data.interactivePrompt.size() > 0 &&
+             data.exercises is list && data.exercises.size() > 0 && data.exercises.size() <= 20 &&
+             data.imageCount is number && data.imageCount > 0 && data.imageCount <= 5;
+    }
+
+    // ===============================================================
+    // Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && isValidUserProfile() && uidUnchanged();
+      allow update: if isOwner(userId) && isValidUserProfile() && uidNotModified() && request.resource.data.createdAt == resource.data.createdAt;
+      
+      match /subjects/{subjectId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidSubject();
+        allow update: if isOwner(userId) && isValidSubject();
+        
+        match /chapters/{chapterId} {
+          allow read: if isOwner(userId);
+          allow create: if isOwner(userId) && isValidChapter();
+          allow update: if isOwner(userId) && isValidChapter();
+        }
+      }
+      
+      match /sessions/{sessionId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidStudySession() && uidUnchanged();
+        allow update: if isOwner(userId) && isValidStudySession() && uidNotModified();
+        allow delete: if isOwner(userId);
+      }
+
+      match /roadmaps/{roadmapId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidRoadmap() && uidUnchanged();
+        allow update: if isOwner(userId) && isValidRoadmap() && uidNotModified();
+        allow delete: if isOwner(userId);
+      }
+
+      match /quotas/{quotaId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidQuota();
+        allow update: if isOwner(userId) && isValidQuota();
+      }
+
+      match /scans/{scanId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId) && isValidScan();
+        allow update: if isOwner(userId) && isValidScan();
+        allow delete: if isOwner(userId);
+      }
+    }
+  }
+}
