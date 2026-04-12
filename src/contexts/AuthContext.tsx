@@ -117,32 +117,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await signInWithPopup(auth, provider);
   };
 
+  const signInWithEmail = async (email: string, pass: string) => {
+    await signInWithEmailAndPassword(auth, email, pass);
+  };
+
   const signUpWithEmail = async (email: string, pass: string) => {
-  // Validation basique
-  if (email.length < 5) {
-    throw new Error('L\'email doit contenir au moins 5 caractères.');
-  }
-  if (pass.length < 6) {
-    throw new Error('Le mot de passe doit contenir au moins 6 caractères.');
-  }
-  
-  try {
-    await createUserWithEmailAndPassword(auth, email, pass);
-  } catch (error: any) {
-    // Gestion spécifique des erreurs Firebase
-    if (error.code === 'auth/email-already-in-use') {
-      throw new Error('Cet email est déjà utilisé. Essaye un autre email ou connecte-toi.');
-    } else if (error.code === 'auth/invalid-email') {
-      throw new Error('Format d\'email invalide.');
-    } else if (error.code === 'auth/weak-password') {
-      throw new Error('Le mot de passe est trop faible (minimum 6 caractères).');
-    } else if (error.code === 'auth/operation-not-allowed') {
-      throw new Error('La création de compte est désactivée.');
-    } else {
-      throw new Error(error.message || 'Erreur lors de la création du compte.');
+    // Validation basique
+    if (email.length < 5) {
+      throw new Error('L\'email doit contenir au moins 5 caractères.');
     }
-  }
-};
+    if (pass.length < 6) {
+      throw new Error('Le mot de passe doit contenir au moins 6 caractères.');
+    }
+    
+    try {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (error: any) {
+      // Gestion spécifique des erreurs Firebase
+      if (error.code === 'auth/email-already-in-use') {
+        throw new Error('Cet email est déjà utilisé. Essaye un autre email ou connecte-toi.');
+      } else if (error.code === 'auth/invalid-email') {
+        throw new Error('Format d\'email invalide.');
+      } else if (error.code === 'auth/weak-password') {
+        throw new Error('Le mot de passe est trop faible (minimum 6 caractères).');
+      } else if (error.code === 'auth/operation-not-allowed') {
+        throw new Error('La création de compte est désactivée.');
+      } else {
+        throw new Error(error.message || 'Erreur lors de la création du compte.');
+      }
+    }
+  };
 
   const setupRecaptcha = (containerId: string) => {
     return new RecaptchaVerifier(auth, containerId, {
@@ -179,4 +183,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+    }
