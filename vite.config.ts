@@ -1,3 +1,4 @@
+
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
@@ -31,6 +32,7 @@ export default defineConfig(({mode}) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
+          cleanupOutdatedCaches: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -75,5 +77,35 @@ export default defineConfig(({mode}) => {
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
+    build: {
+      sourcemap: false,
+      minify: 'terser',
+      outDir: 'dist',
+      assetsDir: 'assets',
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'vendor': [
+              'react',
+              'react-dom',
+              'react-router-dom'
+            ],
+            'firebase': [
+              'firebase/app',
+              'firebase/auth',
+              'firebase/firestore',
+              'firebase/storage'
+            ]
+          }
+        }
+      },
+      terserOptions: {
+        compress: {
+          drop_console: true,
+          drop_debugger: true
+        },
+        mangle: true
+      }
+    }
   };
 });
