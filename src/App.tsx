@@ -145,27 +145,33 @@ function Login() {
           <>
             <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                  placeholder="eleve@exemple.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
+  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+  <input 
+    id="email"
+    name="email"
+    type="email" 
+    required
+    autoComplete="email"
+    value={email}
+    onChange={(e) => setEmail(e.target.value)}
+    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+    placeholder="eleve@exemple.com"
+  />
+</div>
+<div>
+  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+  <input 
+    id="password"
+    name="password"
+    type="password" 
+    required
+    autoComplete="current-password"
+    value={password}
+    onChange={(e) => setPassword(e.target.value)}
+    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+    placeholder="••••••••"
+  />
+</div>
               <button 
                 type="submit" 
                 disabled={loading}
