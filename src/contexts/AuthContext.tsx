@@ -144,10 +144,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 };
 
-  const signUpWithEmail = async (email: string, pass: string) => {
-    await createUserWithEmailAndPassword(auth, email, pass);
-  };
-
   const setupRecaptcha = (containerId: string) => {
     return new RecaptchaVerifier(auth, containerId, {
       size: 'invisible',
