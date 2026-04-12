@@ -257,7 +257,10 @@ function Login() {
             onClick={() => handleProviderAuth(signInWithGoogle)}
             className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
           >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="#4285F4">
+  <circle cx="12" cy="12" r="10" fill="#fff" opacity="0.1"/>
+  <text x="12" y="14" textAnchor="middle" fill="#4285F4" fontSize="10" fontWeight="bold">G</text>
+</svg>
             Google
           </button>
           <button
