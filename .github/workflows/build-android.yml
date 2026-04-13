@@ -19,7 +19,7 @@ jobs:
           cache: 'npm'
 
       - name: Install dependencies
-        run: npm ci
+        run: npm install
 
       - name: Build Web App
         run: npm run build
@@ -34,7 +34,9 @@ jobs:
 
       - name: Setup Capacitor Android
         run: |
-          npx cap add android
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
           npx cap sync android
 
       - name: Setup Java
@@ -46,7 +48,9 @@ jobs:
       - name: Configure Android Project (Permissions & Package Name)
         run: |
           # Inject Permissions into AndroidManifest.xml
-          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />' android/app/src/main/AndroidManifest.xml
+          # Using a more portable way to insert multiple lines
+          PERMISSIONS='    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />'
+          sed -i "/<application/i $PERMISSIONS" android/app/src/main/AndroidManifest.xml
           
           # Update Application ID in build.gradle
           sed -i 's/applicationId ".*"/applicationId "tg.logonova.cpla1erd"/' android/app/build.gradle
@@ -88,6 +92,12 @@ jobs:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+
+      - name: Debug Output (if failed)
+        if: failure()
+        run: |
+          ls -R android/app/src/main
+          cat android/app/build.gradle
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
