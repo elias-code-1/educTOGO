@@ -1,4 +1,4 @@
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 
 // Initialize the Gemini API client
 // We use the environment variable provided by Vite
@@ -60,11 +60,35 @@ export async function generateStudyPackFromImages(base64Images: string[]): Promi
     ];
 
     const response = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-3-flash-preview',
       contents: contents,
       config: {
         temperature: 0.2,
         responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            summary: { type: Type.STRING },
+            interactivePrompt: { type: Type.STRING },
+            exercises: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  question: { type: Type.STRING },
+                  options: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING }
+                  },
+                  answer: { type: Type.STRING },
+                  explanation: { type: Type.STRING }
+                },
+                required: ["question", "answer", "explanation"]
+              }
+            }
+          },
+          required: ["summary", "interactivePrompt", "exercises"]
+        }
       }
     });
 

@@ -143,11 +143,13 @@ service cloud.firestore {
         allow read: if isOwner(userId);
         allow create: if isOwner(userId) && isValidSubject();
         allow update: if isOwner(userId) && isValidSubject();
+        allow delete: if isOwner(userId);
         
         match /chapters/{chapterId} {
           allow read: if isOwner(userId);
           allow create: if isOwner(userId) && isValidChapter();
           allow update: if isOwner(userId) && isValidChapter();
+          allow delete: if isOwner(userId);
         }
       }
       

@@ -53,8 +53,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [isInitializing, setIsInitializing] = useState(false);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      console.log("Auth state changed:", currentUser?.uid);
       setUser(currentUser);
       if (currentUser) {
         // Start initialization but don't block the UI
@@ -69,18 +72,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const initializeUserData = async (user: User) => {
+    if (isInitializing) return;
+    setIsInitializing(true);
+    
     try {
+      console.log("Starting user data initialization for:", user.uid);
       const userRef = doc(db, 'users', user.uid);
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        await setDoc(userRef, {
+        console.log("Creating user profile...");
+        const userData: any = {
           uid: user.uid,
-          email: user.email,
+          email: user.email || `user-${user.uid}@example.com`,
           displayName: user.displayName || user.email?.split('@')[0] || 'Élève',
-          photoURL: user.photoURL,
           createdAt: serverTimestamp()
-        });
+        };
+        if (user.photoURL) {
+          userData.photoURL = user.photoURL;
+        }
+        await setDoc(userRef, userData);
       }
 
       // Check if subjects are already initialized to avoid redundant writes
@@ -119,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             // Commit batch if it reaches 400 operations (safe limit)
             if (operationCount >= 400) {
+              console.log(`Committing batch (${operationCount} ops)...`);
               await batch.commit();
               batch = writeBatch(db);
               operationCount = 0;
@@ -127,13 +139,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (operationCount > 0) {
+          console.log(`Committing final batch (${operationCount} ops)...`);
           await batch.commit();
         }
         console.log("Curriculum initialized successfully.");
+      } else {
+        console.log("Curriculum already initialized.");
       }
     } catch (error) {
       console.error("Error in initializeUserData:", error);
-      // We don't use handleFirestoreError here to avoid blocking the app with a JSON error
+    } finally {
+      setIsInitializing(false);
     }
   };
 

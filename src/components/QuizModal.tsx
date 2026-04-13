@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import { GoogleGenAI, Type } from '@google/genai';
 import { X, CheckCircle2, XCircle, Loader2, BrainCircuit } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -58,10 +58,32 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-1.5-flash',
+        model: 'gemini-3-flash-preview',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              questions: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    question: { type: Type.STRING },
+                    options: { 
+                      type: Type.ARRAY,
+                      items: { type: Type.STRING }
+                    },
+                    correctIndex: { type: Type.INTEGER },
+                    explanation: { type: Type.STRING }
+                  },
+                  required: ["question", "options", "correctIndex", "explanation"]
+                }
+              }
+            },
+            required: ["questions"]
+          }
         }
       });
 

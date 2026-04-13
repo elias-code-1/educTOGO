@@ -63,7 +63,7 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Configure Android Project (Permissions & Package Name)
+      - name: Configure Android Project (Permissions, Package Name & Google Services)
         run: |
           # Inject Custom AndroidManifest.xml
           if [ -f "mobile/android/AndroidManifest.xml" ]; then
@@ -80,6 +80,18 @@ jobs:
           
           # Update Application ID in build.gradle
           sed -i 's/applicationId ".*"/applicationId "tg.logonova.cpla1erd"/' android/app/build.gradle
+
+          # Add Google Services Plugin to Project level build.gradle
+          if ! grep -q "com.google.gms:google-services" android/build.gradle; then
+            sed -i '/dependencies {/a \        classpath "com.google.gms:google-services:4.4.1"' android/build.gradle
+            echo "✅ Google Services classpath ajouté au build.gradle racine."
+          fi
+
+          # Apply Google Services Plugin to App level build.gradle
+          if ! grep -q "com.google.gms.google-services" android/app/build.gradle; then
+            echo "apply plugin: 'com.google.gms.google-services'" >> android/app/build.gradle
+            echo "✅ Plugin Google Services appliqué au build.gradle de l'app."
+          fi
 
       - name: Inject Signing Config into build.gradle
         run: |

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
-import { User as UserIcon, Mail, Calendar, LogOut, Save, Loader2 } from 'lucide-react';
+import { User as UserIcon, Mail, Calendar, LogOut, Save, Loader2, Trash2, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -12,8 +12,11 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [createdAt, setCreatedAt] = useState<Date | null>(null);
+
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -60,6 +63,55 @@ export default function Profile() {
       setMessage({ type: 'error', text: 'Erreur lors de la mise à jour du profil.' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleResetData = async () => {
+    if (!user) return;
+    setResetting(true);
+    try {
+      const { writeBatch, collection, getDocs } = await import('firebase/firestore');
+      
+      const batch = writeBatch(db);
+      
+      // Reset subjects progress instead of deleting
+      const subjectsSnap = await getDocs(collection(db, 'users', user.uid, 'subjects'));
+      
+      for (const subjectDoc of subjectsSnap.docs) {
+        batch.update(subjectDoc.ref, {
+          completedChapters: 0,
+          grade: 0
+        });
+        
+        // Reset chapters status
+        const chaptersSnap = await getDocs(collection(db, 'users', user.uid, 'subjects', subjectDoc.id, 'chapters'));
+        chaptersSnap.forEach(chap => {
+          batch.update(chap.ref, {
+            status: 'pending'
+          });
+        });
+      }
+      
+      // Delete roadmap
+      const roadmapRef = doc(db, 'users', user.uid, 'roadmaps', 'current');
+      batch.delete(roadmapRef);
+      
+      // Delete sessions
+      const sessionsSnap = await getDocs(collection(db, 'users', user.uid, 'sessions'));
+      sessionsSnap.forEach(session => batch.delete(session.ref));
+      
+      await batch.commit();
+      
+      setMessage({ type: 'success', text: 'Progression réinitialisée avec succès !' });
+      
+      // Force reload to trigger re-initialization
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (error) {
+      console.error("Error resetting data", error);
+      setMessage({ type: 'error', text: 'Erreur lors de la réinitialisation des données.' });
+    } finally {
+      setResetting(false);
+      setShowResetConfirm(false);
     }
   };
 
@@ -135,18 +187,58 @@ export default function Profile() {
           </form>
         </div>
         
-        <div className="bg-gray-50 p-8 border-t border-gray-100">
-          <h3 className="text-lg font-bold text-red-600 mb-2">Zone de danger</h3>
-          <p className="text-gray-500 text-sm mb-6">
-            Déconnecte-toi de ton compte sur cet appareil. Tes données resteront sauvegardées et synchronisées.
-          </p>
-          <button
-            onClick={logOut}
-            className="w-full sm:w-auto px-6 py-3 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
-          >
-            <LogOut size={20} />
-            Me déconnecter
-          </button>
+        <div className="bg-gray-50 p-8 border-t border-gray-100 space-y-6">
+          <div>
+            <h3 className="text-lg font-bold text-red-600 mb-2">Zone de danger</h3>
+            <p className="text-gray-500 text-sm mb-4">
+              Ces actions sont irréversibles. Soyez prudent.
+            </p>
+          </div>
+
+          <div className="space-y-4">
+            {!showResetConfirm ? (
+              <button
+                onClick={() => setShowResetConfirm(true)}
+                className="w-full sm:w-auto px-6 py-3 bg-white border border-amber-200 text-amber-600 rounded-xl font-bold hover:bg-amber-50 transition-colors flex items-center justify-center gap-2"
+              >
+                <Trash2 size={20} />
+                Réinitialiser mon programme
+              </button>
+            ) : (
+              <div className="bg-amber-50 p-4 rounded-2xl border border-amber-200 space-y-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="text-amber-600 shrink-0 mt-0.5" size={20} />
+                  <p className="text-sm text-amber-800 font-medium">
+                    Êtes-vous sûr ? Cela supprimera toute votre progression et réinitialisera le programme officiel.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleResetData}
+                    disabled={resetting}
+                    className="flex-1 py-2 bg-amber-600 text-white rounded-lg font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {resetting ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                    Confirmer la réinitialisation
+                  </button>
+                  <button 
+                    onClick={() => setShowResetConfirm(false)}
+                    className="flex-1 py-2 bg-white text-gray-600 border border-gray-200 rounded-lg font-bold text-sm"
+                  >
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={logOut}
+              className="w-full sm:w-auto px-6 py-3 bg-white border border-red-200 text-red-600 rounded-xl font-bold hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut size={20} />
+              Me déconnecter
+            </button>
+          </div>
         </div>
       </div>
     </div>
