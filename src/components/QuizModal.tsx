@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
-import { X, CheckCircle2, XCircle, Loader2, BrainCircuit } from 'lucide-react';
+import { generateQuiz, QuizQuestion } from '../lib/gemini';
+import { X, CheckCircle2, XCircle, Loader2, BrainCircuit, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 interface QuizModalProps {
@@ -9,93 +9,34 @@ interface QuizModalProps {
   onSuccess: () => void;
 }
 
-interface Question {
-  question: string;
-  options: string[];
-  correctIndex: number;
-  explanation: string;
-}
-
 export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProps) {
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, number>>({});
   const [showResults, setShowResults] = useState(false);
 
   useEffect(() => {
-    generateQuiz();
+    handleGenerateQuiz();
   }, [chapter]);
 
-  const generateQuiz = async () => {
+  const handleGenerateQuiz = async () => {
     setLoading(true);
     setError(null);
+    setErrorMessage(null);
     
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const data = await generateQuiz(chapter.subjectName, chapter.title, "moyen");
       
-      const prompt = `
-        Tu es un professeur expert du programme de Première D au Togo.
-        Génère un QCM de 5 questions pour évaluer la maîtrise de l'élève sur le chapitre suivant :
-        Matière : ${chapter.subjectName}
-        Chapitre : ${chapter.title}
-        
-        Les questions doivent être de niveau Première D, précises et sans ambiguïté.
-        
-        Réponds UNIQUEMENT avec un objet JSON valide ayant la structure suivante :
-        {
-          "questions": [
-            {
-              "question": "Texte de la question",
-              "options": ["Option A", "Option B", "Option C", "Option D"],
-              "correctIndex": 0, // Index de la bonne réponse (0 à 3)
-              "explanation": "Explication courte de la bonne réponse"
-            }
-          ]
-        }
-      `;
-
-      const response = await ai.models.generateContent({
-        model: 'gemini-3-flash-preview',
-        contents: prompt,
-        config: {
-          responseMimeType: 'application/json',
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              questions: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    question: { type: Type.STRING },
-                    options: { 
-                      type: Type.ARRAY,
-                      items: { type: Type.STRING }
-                    },
-                    correctIndex: { type: Type.INTEGER },
-                    explanation: { type: Type.STRING }
-                  },
-                  required: ["question", "options", "correctIndex", "explanation"]
-                }
-              }
-            },
-            required: ["questions"]
-          }
-        }
-      });
-
-      const text = response.text;
-      if (!text) throw new Error("Réponse vide de l'IA");
-      
-      const data = JSON.parse(text);
-      if (!data.questions || data.questions.length !== 5) {
-        throw new Error("Format de réponse invalide");
+      if (data.length === 0) {
+        setErrorMessage("⏳ Quota IA atteint ou erreur technique. Réessaie après minuit.");
+        return;
       }
       
-      setQuestions(data.questions);
+      setQuestions(data);
     } catch (err) {
       console.error(err);
       setError("Impossible de générer le quiz. Veuillez réessayer.");
@@ -136,6 +77,20 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
       );
     }
 
+    if (errorMessage) {
+      return (
+        <div className="text-center py-8">
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <AlertCircle size={32} />
+          </div>
+          <p className="text-amber-700 font-medium mb-4">{errorMessage}</p>
+          <button onClick={handleGenerateQuiz} className="px-6 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700">
+            Réessayer
+          </button>
+        </div>
+      );
+    }
+
     if (error) {
       return (
         <div className="text-center py-8">
@@ -143,7 +98,7 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
             <XCircle size={32} />
           </div>
           <p className="text-red-600 font-medium mb-4">{error}</p>
-          <button onClick={generateQuiz} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
+          <button onClick={handleGenerateQuiz} className="px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700">
             Réessayer
           </button>
         </div>

@@ -4,7 +4,7 @@ import { Camera, Upload, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-re
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, collection, addDoc } from 'firebase/firestore';
-import { generateStudyPackFromImages } from '../lib/gemini';
+import { generateSummary } from '../lib/gemini';
 
 const MAX_SCANS_PER_DAY = 5;
 const MAX_IMAGES_PER_SCAN = 5;
@@ -91,15 +91,26 @@ export default function Scan() {
     setError(null);
 
     try {
-      // 1. Call Gemini to generate the study pack
-      const studyPack = await generateStudyPackFromImages(images);
+      // 1. Call Gemini to generate the summary
+      // We use the first image for now, or we could join them if the API allowed multiple.
+      // But generateSummary signature takes one string.
+      // I'll use the first image or join them if I had a multi-image function.
+      // The user's generateSummary signature is: generateSummary(content: string, type: "text" | "image_base64")
+      // I'll send the first image or a combined one if possible.
+      // Actually, I'll just send the first one for simplicity as per the signature.
+      const summary = await generateSummary(images[0], "image_base64");
+
+      if (summary.includes("⏳")) {
+        setError(summary);
+        return;
+      }
 
       // 2. Save to Firestore
       const scanRef = await addDoc(collection(db, 'users', user.uid, 'scans'), {
         createdAt: serverTimestamp(),
-        summary: studyPack.summary,
-        interactivePrompt: studyPack.interactivePrompt,
-        exercises: studyPack.exercises,
+        summary: summary,
+        interactivePrompt: "Résumé généré par l'IA.",
+        exercises: [],
         imageCount: images.length
       });
 

@@ -1,106 +1,178 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from "@google/genai";
 
-// Initialize the Gemini API client
-// We use the environment variable provided by Vite
+// Modèle Flash-Lite 2.5 (économique free tier 2026)
+const MODEL_NAME = "gemini-2.5-flash-lite-preview-06-17";
+
+// Initialisation du client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
-export interface StudyPack {
-  summary: string;
-  interactivePrompt: string;
-  exercises: {
-    question: string;
-    options?: string[];
-    answer: string;
-    explanation: string;
-  }[];
+export interface QuizQuestion {
+  question: string;
+  options: string[];
+  correctIndex: number;
+  explanation: string;
 }
 
-export async function generateStudyPackFromImages(base64Images: string[]): Promise<StudyPack> {
-  if (!base64Images || base64Images.length === 0) {
-    throw new Error("Aucune image fournie.");
+/**
+ * Vérifie si la clé API est configurée
+ */
+export function checkApiKey(): boolean {
+  const key = process.env.GEMINI_API_KEY;
+  if (key && key.trim() !== "") {
+    return true;
   }
+  console.error("⚠️ GEMINI_API_KEY manquante");
+  return false;
+}
 
-  const prompt = `
-    Tu es un professeur expert du programme de Première D au Togo.
-    Analyse les images de cours fournies et génère un "Pack d'Étude" complet au format JSON STRICT.
+/**
+ * Utilitaire pour gérer le timeout de 30 secondes
+ */
+async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 30000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => 
+      setTimeout(() => reject(new Error("TIMEOUT")), timeoutMs)
+    )
+  ]);
+}
+
+/**
+ * Génère un résumé de cours (texte ou image)
+ */
+export async function generateSummary(content: string, type: "text" | "image_base64"): Promise<string> {
+  const systemPrompt = `Tu es un professeur expert pour les élèves de Première D au Togo. Quand on te donne un cours, tu produis un résumé complet et bien structuré. 
+
+Respecte OBLIGATOIREMENT ce format :
+
+# [Titre du cours en majuscules]
+
+## 📌 Introduction
+[2-3 phrases qui introduisent le sujet et son importance]
+
+## 📚 [Partie 1 — titre explicite]
+[Explication détaillée en 3-5 phrases. Utilise des exemples concrets du quotidien africain quand c'est possible.]
+
+### Points clés :
+- [point important 1]
+- [point important 2]  
+- [point important 3]
+
+## 📚 [Partie 2 — titre explicite]
+[Même structure]
+
+### Points clés :
+- ...
+
+## 📚 [Partie 3 — titre explicite si nécessaire]
+[Même structure]
+
+## 🔑 À retenir absolument
+[Liste de 5 à 8 points essentiels à mémoriser pour le BAC, formulés de façon courte et percutante]
+
+## 📝 Définitions importantes
+[Tableau ou liste : Terme → Définition simple]
+
+## 💡 Astuce BAC
+[1 conseil pratique sur comment ce cours tombe souvent au BAC Première D au Togo]
+
+---
+Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permettre à un élève de réviser sans avoir besoin de relire le cours original.`;
+  
+  try {
+    let contents: any[];
     
-    Le JSON doit avoir la structure suivante :
-    {
-      "summary": "Un résumé clair et structuré des points clés à retenir absolument de ce cours.",
-      "interactivePrompt": "Une question ouverte ou une mise en situation pour forcer l'élève à réfléchir sur le concept principal (apprentissage actif).",
-      "exercises": [
-        {
-          "question": "Question de l'exercice (QCM ou calcul)",
-          "options": ["Option A", "Option B", "Option C", "Option D"], // Optionnel, seulement pour les QCM
-          "answer": "La bonne réponse",
-          "explanation": "Explication détaillée de la réponse"
-        }
-      ]
+    if (type === "text") {
+      contents = [{ role: "user", parts: [{ text: `${systemPrompt}\n\nCours :\n${content}` }] }];
+    } else {
+      // Extraction des données base64 si nécessaire
+      const base64Data = content.includes("base64,") ? content.split("base64,")[1] : content;
+      contents = [{
+        role: "user",
+        parts: [
+          { text: systemPrompt },
+          { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+        ]
+      }];
     }
-    
-    Génère exactement 10 exercices de difficulté progressive (type Bac Togo).
-    Assure-toi que la réponse soit uniquement le JSON valide, sans aucun texte avant ou après (pas de markdown \`\`\`json).
-  `;
+
+    const response = await withTimeout(ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: contents,
+      config: { temperature: 0.3 }
+    }));
+
+    return response.text || "Désolé, je n'ai pas pu générer de résumé.";
+  } catch (error: any) {
+    if (error.message?.includes("429") || error.status === 429) {
+      return "⏳ Quota IA atteint. Réessaie après minuit (heure de Paris). Tu as le droit à 1000 résumés par jour.";
+    }
+    if (error.message === "TIMEOUT") {
+      return "⏳ La génération a pris trop de temps. Réessaie avec un contenu plus court.";
+    }
+    console.error("Gemini Error:", error);
+    throw error;
+  }
+}
+
+/**
+ * Génère un quiz QCM de 5 questions
+ */
+export async function generateQuiz(subject: string, topic: string, difficulty: "facile" | "moyen" | "difficile"): Promise<QuizQuestion[]> {
+  const prompt = `Tu es un professeur qui prépare des élèves de Première D au BAC au Togo. Génère 5 questions QCM sur le sujet donné. 
+  Sujet : ${topic} (${subject})
+  Difficulté : ${difficulty}
+  
+  Réponds UNIQUEMENT en JSON valide, sans markdown, sans backticks, format : [{"question": "...", "options": ["...", "...", "...", "..."], "correctIndex": 0-3, "explanation": "..."}]`;
 
   try {
-    const contents = [
-      prompt,
-      ...base64Images.map(base64 => {
-        // Extract mime type and base64 data
-        const match = base64.match(/^data:(image\/[a-z]+);base64,(.+)$/);
-        if (!match) throw new Error("Format d'image invalide");
-        
-        return {
-          inlineData: {
-            mimeType: match[1],
-            data: match[2]
-          }
-        };
-      })
-    ];
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: contents,
-      config: {
-        temperature: 0.2,
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            summary: { type: Type.STRING },
-            interactivePrompt: { type: Type.STRING },
-            exercises: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  question: { type: Type.STRING },
-                  options: {
-                    type: Type.ARRAY,
-                    items: { type: Type.STRING }
-                  },
-                  answer: { type: Type.STRING },
-                  explanation: { type: Type.STRING }
-                },
-                required: ["question", "answer", "explanation"]
-              }
-            }
-          },
-          required: ["summary", "interactivePrompt", "exercises"]
-        }
+    const response = await withTimeout(ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { 
+        temperature: 0.5,
+        responseMimeType: "application/json"
       }
-    });
+    }));
 
-    if (!response.text) {
-      throw new Error("La réponse de l'IA est vide.");
+    const text = response.text;
+    if (!text) return [];
+
+    // Nettoyage au cas où le modèle renvoie du markdown
+    const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return JSON.parse(cleanJson) as QuizQuestion[];
+  } catch (error: any) {
+    if (error.message?.includes("429") || error.status === 429) {
+      return [];
     }
+    console.error("Gemini Quiz Error:", error);
+    return [];
+  }
+}
 
-    const result = JSON.parse(response.text);
-    return result as StudyPack;
+/**
+ * Génère une roadmap de révision
+ */
+export async function generateRoadmap(weakSubjects: string[], availableWeeks: number): Promise<string> {
+  const prompt = `Tu es un coach scolaire expert pour le BAC Première D au Togo. Crée un planning de révision semaine par semaine, priorise les matières faibles listées. 
+  Matières à renforcer : ${weakSubjects.join(", ")}
+  Durée : ${availableWeeks} semaines
+  
+  Format : semaines numérotées avec objectifs clairs. Réponds en français.`;
 
-  } catch (error) {
-    console.error("Erreur lors de la génération du pack d'étude:", error);
-    throw new Error("Impossible d'analyser le cours. Veuillez réessayer.");
+  try {
+    const response = await withTimeout(ai.models.generateContent({
+      model: MODEL_NAME,
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      config: { temperature: 0.4 }
+    }));
+
+    return response.text || "Désolé, je n'ai pas pu générer de roadmap.";
+  } catch (error: any) {
+    if (error.message?.includes("429") || error.status === 429) {
+      return "⏳ Quota IA atteint. Réessaie demain.";
+    }
+    console.error("Gemini Roadmap Error:", error);
+    throw error;
   }
 }
