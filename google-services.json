@@ -14,14 +14,6 @@
       },
       "oauth_client": [
         {
-          "client_id": "1022507001814-cmltgplm4u4uvaqqk0qmju9s2p1pv0ha.apps.googleusercontent.com",
-          "client_type": 1,
-          "android_info": {
-            "package_name": "tg.logonova.cpla1erd",
-            "certificate_hash": "fc0c21d2b43812fcd11b8fb55829afa8e992ddb1"
-          }
-        },
-        {
           "client_id": "1022507001814-s0dpkvd7doh04k4g2ulocj1dk7da0h59.apps.googleusercontent.com",
           "client_type": 3
         }

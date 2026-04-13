@@ -57,7 +57,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
       if (currentUser) {
-        await initializeUserData(currentUser);
+        // Start initialization but don't block the UI
+        initializeUserData(currentUser).catch(err => {
+          console.error("Failed to initialize user data:", err);
+        });
       }
       setLoading(false);
     });
@@ -80,12 +83,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      for (const subject of CURRICULUM) {
-        const subjectRef = doc(db, 'users', user.uid, 'subjects', subject.id);
-        const subjectSnap = await getDoc(subjectRef);
+      // Check if subjects are already initialized to avoid redundant writes
+      const firstSubjectRef = doc(db, 'users', user.uid, 'subjects', CURRICULUM[0].id);
+      const firstSubjectSnap = await getDoc(firstSubjectRef);
+      
+      if (!firstSubjectSnap.exists()) {
+        console.log("Initializing curriculum for new user...");
         
-        if (!subjectSnap.exists()) {
-          await setDoc(subjectRef, {
+        // Use batches to speed up initialization (max 500 operations per batch)
+        const { writeBatch } = await import('firebase/firestore');
+        let batch = writeBatch(db);
+        let operationCount = 0;
+
+        for (const subject of CURRICULUM) {
+          const subjectRef = doc(db, 'users', user.uid, 'subjects', subject.id);
+          batch.set(subjectRef, {
             name: subject.name,
             coefficient: subject.coefficient,
             grade: 0,
@@ -94,19 +106,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             color: subject.color,
             icon: subject.icon
           });
+          operationCount++;
 
           for (let i = 0; i < subject.chapters.length; i++) {
             const chapterTitle = subject.chapters[i];
             const chapterRef = doc(db, 'users', user.uid, 'subjects', subject.id, 'chapters', `chap_${i}`);
-            await setDoc(chapterRef, {
+            batch.set(chapterRef, {
               title: chapterTitle,
               status: 'pending'
             });
+            operationCount++;
+
+            // Commit batch if it reaches 400 operations (safe limit)
+            if (operationCount >= 400) {
+              await batch.commit();
+              batch = writeBatch(db);
+              operationCount = 0;
+            }
           }
         }
+
+        if (operationCount > 0) {
+          await batch.commit();
+        }
+        console.log("Curriculum initialized successfully.");
       }
     } catch (error) {
-      handleFirestoreError(error, OperationType.WRITE, `users/${user.uid}`);
+      console.error("Error in initializeUserData:", error);
+      // We don't use handleFirestoreError here to avoid blocking the app with a JSON error
     }
   };
 

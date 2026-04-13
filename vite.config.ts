@@ -17,15 +17,28 @@ export default defineConfig(({mode}) => {
           name: 'CPLA 1er D',
           short_name: 'CPLA 1er D',
           description: 'Application de suivi des révisions pour la Première D',
-          theme_color: '#2563eb',
+          theme_color: '#003366',
           background_color: '#ffffff',
           display: 'standalone',
+          orientation: 'portrait',
           icons: [
             {
               src: 'icon.svg',
-              sizes: '192x192 512x512',
+              sizes: '192x192',
               type: 'image/svg+xml',
-              purpose: 'any maskable'
+              purpose: 'any'
+            },
+            {
+              src: 'icon.svg',
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'any'
+            },
+            {
+              src: 'icon.svg',
+              sizes: '512x512',
+              type: 'image/svg+xml',
+              purpose: 'maskable'
             }
           ]
         },
