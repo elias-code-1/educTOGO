@@ -41,6 +41,22 @@ jobs:
           fi
           npx cap sync android
 
+      - name: Check for google-services.json
+        run: |
+          if [ ! -f "android/app/google-services.json" ]; then
+            echo "❌ ERREUR : google-services.json est manquant dans android/app/"
+            echo "Veuillez le placer à la racine de votre projet ou dans android/app/"
+            # Tentative de récupération si placé à la racine par l'utilisateur
+            if [ -f "google-services.json" ]; then
+              cp google-services.json android/app/google-services.json
+              echo "✅ google-services.json trouvé à la racine et copié."
+            else
+              exit 1
+            fi
+          else
+            echo "✅ google-services.json est présent."
+          fi
+
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
@@ -49,10 +65,18 @@ jobs:
 
       - name: Configure Android Project (Permissions & Package Name)
         run: |
-          # Inject Permissions into AndroidManifest.xml
-          # Using a more portable way to insert multiple lines
-          PERMISSIONS='    <uses-permission android:name="android.permission.INTERNET" />\n    <uses-permission android:name="android.permission.CAMERA" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" />\n    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" />\n    <uses-feature android:name="android.hardware.camera" android:required="false" />'
-          sed -i "/<application/i $PERMISSIONS" android/app/src/main/AndroidManifest.xml
+          # Inject Custom AndroidManifest.xml
+          if [ -f "mobile/android/AndroidManifest.xml" ]; then
+            cp mobile/android/AndroidManifest.xml android/app/src/main/AndroidManifest.xml
+            echo "✅ AndroidManifest.xml personnalisé appliqué."
+          fi
+          
+          # Inject Network Security Config
+          mkdir -p android/app/src/main/res/xml
+          if [ -f "mobile/android/network_security_config.xml" ]; then
+            cp mobile/android/network_security_config.xml android/app/src/main/res/xml/network_security_config.xml
+            echo "✅ network_security_config.xml appliqué."
+          fi
           
           # Update Application ID in build.gradle
           sed -i 's/applicationId ".*"/applicationId "tg.logonova.cpla1erd"/' android/app/build.gradle
@@ -83,6 +107,17 @@ jobs:
 
       - name: Decode Keystore
         run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release-key.keystore
+
+      - name: Display SHA-1 fingerprint
+        run: |
+          echo "=== SHA-1 Fingerprint ==="
+          if [ -f "android/app/release-key.keystore" ]; then
+            keytool -list -v -keystore android/app/release-key.keystore -alias ${{ secrets.KEY_ALIAS }} -storepass ${{ secrets.KEYSTORE_PASSWORD }} | grep SHA1
+          else
+            echo "Release keystore not found, checking debug keystore..."
+            keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android | grep SHA1
+          fi
+          echo "========================="
 
       - name: Build APK & AAB
         run: |

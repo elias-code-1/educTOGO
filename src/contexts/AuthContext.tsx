@@ -3,40 +3,55 @@ import {
   User, 
   onAuthStateChanged, 
   signInWithPopup, 
+  signInWithRedirect,
   GoogleAuthProvider, 
-  GithubAuthProvider,
-  FacebookAuthProvider,
-  OAuthProvider,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   signOut,
-  RecaptchaVerifier,
-  signInWithPhoneNumber,
-  ConfirmationResult
+  AuthError
 } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { CURRICULUM } from '../data/curriculum';
+import { Capacitor } from '@capacitor/core';
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
+  error: string | null;
   signInWithGoogle: () => Promise<void>;
-  signInWithGithub: () => Promise<void>;
-  signInWithFacebook: () => Promise<void>;
-  signInWithApple: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
-  setupRecaptcha: (containerId: string) => RecaptchaVerifier;
-  signInWithPhone: (phoneNumber: string, appVerifier: RecaptchaVerifier) => Promise<ConfirmationResult>;
   logOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const getErrorMessage = (error: AuthError): string => {
+  switch (error.code) {
+    case 'auth/user-not-found':
+      return "Utilisateur introuvable.";
+    case 'auth/wrong-password':
+      return "Mot de passe incorrect.";
+    case 'auth/email-already-in-use':
+      return "Cet email est déjà utilisé.";
+    case 'auth/network-request-failed':
+      return "Erreur réseau, vérifiez votre connexion.";
+    case 'auth/invalid-email':
+      return "Format d'email invalide.";
+    case 'auth/weak-password':
+      return "Le mot de passe est trop court.";
+    case 'auth/popup-closed-by-user':
+      return "La fenêtre de connexion a été fermée.";
+    default:
+      return `Une erreur est survenue : ${error.message}`;
+  }
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
@@ -56,7 +71,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        // Create user profile
         await setDoc(userRef, {
           uid: user.uid,
           email: user.email,
@@ -66,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         });
       }
 
-      // Always sync subjects to ensure existing users get new subjects (like ECM)
       for (const subject of CURRICULUM) {
         const subjectRef = doc(db, 'users', user.uid, 'subjects', subject.id);
         const subjectSnap = await getDoc(subjectRef);
@@ -98,56 +111,52 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    await signInWithPopup(auth, provider);
-  };
-
-  const signInWithGithub = async () => {
-    const provider = new GithubAuthProvider();
-    await signInWithPopup(auth, provider);
-  };
-
-  const signInWithFacebook = async () => {
-    const provider = new FacebookAuthProvider();
-    await signInWithPopup(auth, provider);
-  };
-
-  const signInWithApple = async () => {
-    const provider = new OAuthProvider('apple.com');
-    await signInWithPopup(auth, provider);
+    setError(null);
+    try {
+      const provider = new GoogleAuthProvider();
+      if (Capacitor.isNativePlatform()) {
+        await signInWithRedirect(auth, provider);
+      } else {
+        await signInWithPopup(auth, provider);
+      }
+    } catch (err) {
+      setError(getErrorMessage(err as AuthError));
+      throw err;
+    }
   };
 
   const signInWithEmail = async (email: string, pass: string) => {
-    await signInWithEmailAndPassword(auth, email, pass);
+    setError(null);
+    try {
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (err) {
+      setError(getErrorMessage(err as AuthError));
+      throw err;
+    }
   };
 
   const signUpWithEmail = async (email: string, pass: string) => {
-    await createUserWithEmailAndPassword(auth, email, pass);
-  };
-
-  const setupRecaptcha = (containerId: string) => {
-    return new RecaptchaVerifier(auth, containerId, {
-      size: 'invisible',
-    });
-  };
-
-  const signInWithPhone = async (phoneNumber: string, appVerifier: RecaptchaVerifier) => {
-    return await signInWithPhoneNumber(auth, phoneNumber, appVerifier);
+    setError(null);
+    try {
+      await createUserWithEmailAndPassword(auth, email, pass);
+    } catch (err) {
+      setError(getErrorMessage(err as AuthError));
+      throw err;
+    }
   };
 
   const logOut = async () => {
     try {
       await signOut(auth);
-    } catch (error) {
-      console.error("Error signing out", error);
+    } catch (err) {
+      console.error("Error signing out", err);
     }
   };
 
   return (
     <AuthContext.Provider value={{ 
-      user, loading, 
-      signInWithGoogle, signInWithGithub, signInWithFacebook, signInWithApple,
-      signInWithEmail, signUpWithEmail, setupRecaptcha, signInWithPhone, logOut 
+      user, loading, error,
+      signInWithGoogle, signInWithEmail, signUpWithEmail, logOut 
     }}>
       {children}
     </AuthContext.Provider>

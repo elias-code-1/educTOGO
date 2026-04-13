@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1022507001814",
+    "project_id": "gen-lang-client-0809830282",
+    "storage_bucket": "gen-lang-client-0809830282.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022507001814:android:cf7bbff770d393cf87a677",
+        "android_client_info": {
+          "package_name": "tg.logonova.cpla1erd"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1022507001814-s0dpkvd7doh04k4g2ulocj1dk7da0h59.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBUH35rV1Kd5BII5KHQujC-EsdR0Qjx1yI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1022507001814-s0dpkvd7doh04k4g2ulocj1dk7da0h59.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

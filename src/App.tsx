@@ -2,9 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { LayoutDashboard, BookOpen, BarChart3, LogOut, Github, Facebook, Mail, Apple, User, Phone } from 'lucide-react';
+import { LayoutDashboard, BookOpen, BarChart3, LogOut, Mail, User } from 'lucide-react';
 import { cn } from './lib/utils';
-import { ConfirmationResult } from 'firebase/auth';
 
 // Pages
 import Dashboard from './pages/Dashboard';
@@ -34,14 +33,10 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
 }
 
 function Login() {
-  const { user, signInWithGoogle, signInWithGithub, signInWithFacebook, signInWithApple, signInWithEmail, signUpWithEmail, setupRecaptcha, signInWithPhone } = useAuth();
-  const [authMode, setAuthMode] = useState<'email' | 'phone'>('email');
+  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, error: authError } = useAuth();
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [verificationCode, setVerificationCode] = useState('');
-  const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   
@@ -60,56 +55,12 @@ function Login() {
         await signInWithEmail(email, password);
       }
     } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Une erreur est survenue lors de l'authentification.");
+      // Error is handled by AuthContext
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSendCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      if (!window.recaptchaVerifier) {
-        window.recaptchaVerifier = setupRecaptcha('recaptcha-container');
-      }
-      const confirmation = await signInWithPhone(phoneNumber, window.recaptchaVerifier);
-      setConfirmationResult(confirmation);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Erreur lors de l'envoi du code SMS. Vérifiez le format (+228...).");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyCode = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!confirmationResult) return;
-    setError('');
-    setLoading(true);
-    try {
-      await confirmationResult.confirm(verificationCode);
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Code de vérification invalide.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleProviderAuth = async (providerFn: () => Promise<void>) => {
-    setError('');
-    try {
-      await providerFn();
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "La connexion avec ce fournisseur a échoué.");
-    }
-  };
-  
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full">
@@ -127,122 +78,47 @@ function Login() {
           </div>
         )}
 
-        <div className="flex bg-gray-100 p-1 rounded-xl mb-6">
-          <button
-            onClick={() => setAuthMode('email')}
-            className={cn("flex-1 py-2 text-sm font-medium rounded-lg transition-colors", authMode === 'email' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700")}
+        <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input 
+              type="email" 
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+              placeholder="eleve@exemple.com"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+            <input 
+              type="password" 
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+              placeholder="••••••••"
+            />
+          </div>
+          <button 
+            type="submit" 
+            disabled={loading}
+            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
           >
-            Email
+            {loading ? 'Chargement...' : (isSignUp ? "Créer un compte" : "Se connecter")}
           </button>
-          <button
-            onClick={() => setAuthMode('phone')}
-            className={cn("flex-1 py-2 text-sm font-medium rounded-lg transition-colors", authMode === 'phone' ? "bg-white shadow-sm text-gray-900" : "text-gray-500 hover:text-gray-700")}
+        </form>
+
+        <div className="text-center mb-6">
+          <button 
+            type="button" 
+            onClick={() => setIsSignUp(!isSignUp)}
+            className="text-sm text-blue-600 font-medium hover:underline"
           >
-            Téléphone
+            {isSignUp ? "Déjà un compte ? Se connecter" : "Pas de compte ? S'inscrire"}
           </button>
         </div>
-
-        {authMode === 'email' ? (
-          <>
-            <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input 
-                  type="email" 
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                  placeholder="eleve@exemple.com"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-                <input 
-                  type="password" 
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                  placeholder="••••••••"
-                />
-              </div>
-              <button 
-                type="submit" 
-                disabled={loading}
-                className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Chargement...' : (isSignUp ? "Créer un compte" : "Se connecter")}
-              </button>
-            </form>
-
-            <div className="text-center mb-6">
-              <button 
-                type="button" 
-                onClick={() => setIsSignUp(!isSignUp)}
-                className="text-sm text-blue-600 font-medium hover:underline"
-              >
-                {isSignUp ? "Déjà un compte ? Se connecter" : "Pas de compte ? S'inscrire"}
-              </button>
-            </div>
-          </>
-        ) : (
-          <>
-            {!confirmationResult ? (
-              <form onSubmit={handleSendCode} className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Numéro de téléphone</label>
-                  <input 
-                    type="tel" 
-                    required
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-                    placeholder="+228 90 00 00 00"
-                  />
-                  <p className="text-xs text-gray-500 mt-1">N'oubliez pas l'indicatif du pays (ex: +228)</p>
-                </div>
-                <div id="recaptcha-container"></div>
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  <Phone size={18} />
-                  {loading ? 'Envoi...' : "Recevoir le code SMS"}
-                </button>
-              </form>
-            ) : (
-              <form onSubmit={handleVerifyCode} className="space-y-4 mb-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Code de vérification</label>
-                  <input 
-                    type="text" 
-                    required
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all text-center tracking-widest text-lg"
-                    placeholder="123456"
-                  />
-                </div>
-                <button 
-                  type="submit" 
-                  disabled={loading}
-                  className="w-full bg-green-600 text-white py-3 rounded-xl font-bold hover:bg-green-700 transition-colors disabled:opacity-50"
-                >
-                  {loading ? 'Vérification...' : "Valider le code"}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setConfirmationResult(null)}
-                  className="w-full text-sm text-gray-500 hover:text-gray-700"
-                >
-                  Changer de numéro
-                </button>
-              </form>
-            )}
-          </>
-        )}
 
         <div className="relative mb-6">
           <div className="absolute inset-0 flex items-center">
@@ -253,36 +129,13 @@ function Login() {
           </div>
         </div>
         
-        <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => handleProviderAuth(signInWithGoogle)}
-            className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-          >
-            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-            Google
-          </button>
-          <button
-            onClick={() => handleProviderAuth(signInWithApple)}
-            className="flex items-center justify-center gap-2 bg-black text-white py-2.5 rounded-xl font-medium hover:bg-gray-900 transition-colors"
-          >
-            <Apple className="w-5 h-5" fill="currentColor" />
-            Apple
-          </button>
-          <button
-            onClick={() => handleProviderAuth(signInWithGithub)}
-            className="flex items-center justify-center gap-2 bg-[#24292F] text-white py-2.5 rounded-xl font-medium hover:bg-[#24292F]/90 transition-colors"
-          >
-            <Github className="w-5 h-5" fill="currentColor" />
-            GitHub
-          </button>
-          <button
-            onClick={() => handleProviderAuth(signInWithFacebook)}
-            className="flex items-center justify-center gap-2 bg-[#1877F2] text-white py-2.5 rounded-xl font-medium hover:bg-[#1877F2]/90 transition-colors"
-          >
-            <Facebook className="w-5 h-5" fill="currentColor" />
-            Facebook
-          </button>
-        </div>
+        <button
+          onClick={() => signInWithGoogle()}
+          className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+        >
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
+          Google
+        </button>
       </div>
     </div>
   );
