@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /analytics
+Disallow: /profile
+Disallow: /scan
+Disallow: /study-pack/
+
+Sitemap: https://cpla-1erd.tg/sitemap.xml

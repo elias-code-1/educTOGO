@@ -13,6 +13,7 @@ import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
 import Scan from './pages/Scan';
 import StudyPack from './pages/StudyPack';
+import NotFound from './pages/NotFound';
 
 declare global {
   interface Window {
@@ -145,33 +146,27 @@ function Login() {
           <>
             <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
               <div>
-  <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-  <input 
-    id="email"
-    name="email"
-    type="email" 
-    required
-    autoComplete="email"
-    value={email}
-    onChange={(e) => setEmail(e.target.value)}
-    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-    placeholder="eleve@exemple.com"
-  />
-</div>
-<div>
-  <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-  <input 
-    id="password"
-    name="password"
-    type="password" 
-    required
-    autoComplete="current-password"
-    value={password}
-    onChange={(e) => setPassword(e.target.value)}
-    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-    placeholder="••••••••"
-  />
-</div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input 
+                  type="email" 
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+                  placeholder="eleve@exemple.com"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
+                <input 
+                  type="password" 
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
+                  placeholder="••••••••"
+                />
+              </div>
               <button 
                 type="submit" 
                 disabled={loading}
@@ -263,10 +258,7 @@ function Login() {
             onClick={() => handleProviderAuth(signInWithGoogle)}
             className="flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
           >
-           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" className="w-5 h-5" fill="#4285F4">
-  <circle cx="12" cy="12" r="10" fill="#fff" opacity="0.1"/>
-  <text x="12" y="14" textAnchor="middle" fill="#4285F4" fontSize="10" fontWeight="bold">G</text>
-</svg>
+            <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
             Google
           </button>
           <button
@@ -417,6 +409,7 @@ export default function App() {
             <Route path="/profile" element={<PrivateRoute><Layout><Profile /></Layout></PrivateRoute>} />
             <Route path="/scan" element={<PrivateRoute><Layout><Scan /></Layout></PrivateRoute>} />
             <Route path="/study-pack/:id" element={<PrivateRoute><Layout><StudyPack /></Layout></PrivateRoute>} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </Router>
       </AuthProvider>

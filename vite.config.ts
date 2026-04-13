@@ -6,14 +6,12 @@ import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
-  const buildTime = new Date().getTime();
-  
   return {
     plugins: [
       react(), 
       tailwindcss(),
       VitePWA({
-        registerType: 'prompt',
+        registerType: 'autoUpdate',
         includeAssets: ['icon.svg'],
         manifest: {
           name: 'CPLA 1er D',
@@ -33,9 +31,6 @@ export default defineConfig(({mode}) => {
         },
         workbox: {
           globPatterns: ['**/*.{js,css,html,ico,png,svg}'],
-          cleanupOutdatedCaches: true,
-          skipWaiting: true,
-          clientsClaim: true,
           runtimeCaching: [
             {
               urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
@@ -80,35 +75,5 @@ export default defineConfig(({mode}) => {
     server: {
       hmr: process.env.DISABLE_HMR !== 'true',
     },
-    build: {
-      sourcemap: false,
-      minify: 'terser',
-      outDir: 'dist',
-      assetsDir: 'assets',
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'vendor': [
-              'react',
-              'react-dom',
-              'react-router-dom'
-            ],
-            'firebase': [
-              'firebase/app',
-              'firebase/auth',
-              'firebase/firestore',
-              'firebase/storage'
-            ]
-          }
-        }
-      },
-      terserOptions: {
-        compress: {
-          drop_console: true,
-          drop_debugger: true
-        },
-        mangle: true
-      }
-    }
   };
 });

@@ -65,7 +65,7 @@ export default function RoadmapGenerator() {
         Voici le résumé du programme :
         ${curriculumStr}
         
-        Génère un planning d'étude jour par jour du 12 Avril 2026 au 18 Mai 2026.
+        Génère un planning d'étude jour par jour pour les 14 prochains jours (du 12 Avril 2026 au 26 Avril 2026).
         Concentre-toi sur les matières à fort coefficient (Maths, PC, SVT) mais n'oublie pas les autres.
         
         Réponds UNIQUEMENT avec un objet JSON valide ayant la structure suivante :
@@ -80,10 +80,11 @@ export default function RoadmapGenerator() {
       `;
 
       const response = await ai.models.generateContent({
-        model: 'gemini-3.1-pro-preview',
+        model: 'gemini-2.0-flash',
         contents: prompt,
         config: {
           responseMimeType: 'application/json',
+          temperature: 0.1,
         }
       });
 
@@ -108,8 +109,8 @@ export default function RoadmapGenerator() {
       });
       
     } catch (err) {
-      console.error(err);
-      setError("Impossible de générer la roadmap. Veuillez réessayer.");
+      console.error("Roadmap Generation Error:", err);
+      setError("Impossible de générer la roadmap. Vérifiez votre connexion ou réessayez plus tard.");
     } finally {
       setLoading(false);
     }
