@@ -9,6 +9,34 @@ import { generateSummary } from '../lib/gemini';
 const MAX_SCANS_PER_DAY = 5;
 const MAX_IMAGES_PER_SCAN = 5;
 
+async function compressImage(base64: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const MAX_SIZE = 1024;
+      let width = img.width;
+      let height = img.height;
+      
+      if (width > height && width > MAX_SIZE) {
+        height = (height * MAX_SIZE) / width;
+        width = MAX_SIZE;
+      } else if (height > MAX_SIZE) {
+        width = (width * MAX_SIZE) / height;
+        height = MAX_SIZE;
+      }
+      
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d')!;
+      ctx.drawImage(img, 0, 0, width, height);
+      const compressed = canvas.toDataURL('image/jpeg', 0.7);
+      resolve(compressed.split('base64,')[1]);
+    };
+    img.src = 'data:image/jpeg;base64,' + base64;
+  });
+}
+
 export default function Scan() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -98,7 +126,8 @@ export default function Scan() {
       // The user's generateSummary signature is: generateSummary(content: string, type: "text" | "image_base64")
       // I'll send the first image or a combined one if possible.
       // Actually, I'll just send the first one for simplicity as per the signature.
-      const summary = await generateSummary(images[0], "image_base64");
+      const compressedImage = await compressImage(images[0]);
+      const summary = await generateSummary(compressedImage, "image_base64");
 
       if (summary.includes("⏳")) {
         setError(summary);
