@@ -81,12 +81,19 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
   
   try {
     let contents: any[];
+    const timeoutMs = type === "image_base64" ? 60000 : 30000;
     
     if (type === "text") {
       contents = [{ role: "user", parts: [{ text: `${systemPrompt}\n\nCours :\n${content}` }] }];
     } else {
       // Extraction des données base64 si nécessaire
-      const base64Data = content.includes("base64,") ? content.split("base64,")[1] : content;
+      let base64Data = content.includes("base64,") ? content.split("base64,")[1] : content;
+      
+      // Tronquer si la longueur dépasse 500000 caractères
+      if (base64Data.length > 500000) {
+        base64Data = base64Data.substring(0, 500000);
+      }
+      
       contents = [{
         role: "user",
         parts: [
@@ -100,7 +107,7 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
       model: MODEL_NAME,
       contents: contents,
       config: { temperature: 0.3 }
-    }));
+    }), timeoutMs);
 
     return response.text || "Désolé, je n'ai pas pu générer de résumé.";
   } catch (error: any) {
@@ -109,7 +116,7 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
       return "⏳ Quota IA atteint. Réessaie après minuit (heure de Paris). Tu as le droit à 1000 résumés par jour.";
     }
     if (error.message === "TIMEOUT") {
-      return "⏳ La génération a pris trop de temps. Réessaie avec un contenu plus court.";
+      return "⏳ Scan trop long. Essaie avec une photo plus proche et mieux éclairée.";
     }
     console.error("Gemini Error:", error);
     throw error;

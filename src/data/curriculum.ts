@@ -68,7 +68,7 @@ export const CURRICULUM = [
   {
     id: "anglais",
     name: "Anglais",
-    coefficient: 3,
+    coefficient: 2,
     color: "bg-red-500",
     icon: "Languages",
     chapters: [
@@ -84,7 +84,7 @@ export const CURRICULUM = [
   {
     id: "hg",
     name: "Histoire-Géographie",
-    coefficient: 3,
+    coefficient: 2,
     color: "bg-amber-500",
     icon: "Globe",
     chapters: [
@@ -104,7 +104,7 @@ export const CURRICULUM = [
   {
     id: "philo",
     name: "Philosophie",
-    coefficient: 3,
+    coefficient: 2,
     color: "bg-indigo-500",
     icon: "BookOpen",
     chapters: [
