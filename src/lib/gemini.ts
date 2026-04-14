@@ -1,7 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Modèle Flash-Lite 2.5 (économique free tier 2026)
-const MODEL_NAME = "gemini-2.5-flash-lite-preview-06-17";
+const MODEL_NAME = "gemini-2.5-flash-lite";
 
 // Initialisation du client
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -104,7 +104,8 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
 
     return response.text || "Désolé, je n'ai pas pu générer de résumé.";
   } catch (error: any) {
-    if (error.message?.includes("429") || error.status === 429) {
+    if (error.message?.includes("429") || error.status === 429 || 
+        error.message?.includes("404") || error.message?.includes("not found") || error.message?.includes("INVALID_ARGUMENT")) {
       return "⏳ Quota IA atteint. Réessaie après minuit (heure de Paris). Tu as le droit à 1000 résumés par jour.";
     }
     if (error.message === "TIMEOUT") {
@@ -142,7 +143,8 @@ export async function generateQuiz(subject: string, topic: string, difficulty: "
     const cleanJson = text.replace(/```json/g, "").replace(/```/g, "").trim();
     return JSON.parse(cleanJson) as QuizQuestion[];
   } catch (error: any) {
-    if (error.message?.includes("429") || error.status === 429) {
+    if (error.message?.includes("429") || error.status === 429 || 
+        error.message?.includes("404") || error.message?.includes("not found") || error.message?.includes("INVALID_ARGUMENT")) {
       return [];
     }
     console.error("Gemini Quiz Error:", error);
@@ -169,7 +171,8 @@ export async function generateRoadmap(weakSubjects: string[], availableWeeks: nu
 
     return response.text || "Désolé, je n'ai pas pu générer de roadmap.";
   } catch (error: any) {
-    if (error.message?.includes("429") || error.status === 429) {
+    if (error.message?.includes("429") || error.status === 429 || 
+        error.message?.includes("404") || error.message?.includes("not found") || error.message?.includes("INVALID_ARGUMENT")) {
       return "⏳ Quota IA atteint. Réessaie demain.";
     }
     console.error("Gemini Roadmap Error:", error);
