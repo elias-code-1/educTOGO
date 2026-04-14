@@ -33,7 +33,9 @@ async function compressImage(base64: string): Promise<string> {
       const compressed = canvas.toDataURL('image/jpeg', 0.7);
       resolve(compressed.split('base64,')[1]);
     };
-    img.src = 'data:image/jpeg;base64,' + base64;
+    img.src = base64.startsWith('data:') 
+      ? base64 
+      : 'data:image/jpeg;base64,' + base64;
   });
 }
 
