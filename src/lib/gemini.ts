@@ -113,7 +113,7 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
   } catch (error: any) {
     if (error.message?.includes("429") || error.status === 429 || 
         error.message?.includes("404") || error.message?.includes("not found") || error.message?.includes("INVALID_ARGUMENT")) {
-      return "⏳ Quota IA atteint. Réessaie après minuit (heure de Paris). Tu as le droit à 1000 résumés par jour.";
+      return "⏳ Quota IA atteint. Réessaie après minuit (heure de Paris). Tu as le droit à 5 résumés par jour.";
     }
     if (error.message === "TIMEOUT") {
       return "⏳ Scan trop long. Essaie avec une photo plus proche et mieux éclairée.";
