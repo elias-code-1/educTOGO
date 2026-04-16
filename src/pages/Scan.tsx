@@ -11,10 +11,16 @@ import { isQuotaExhausted, incrementRPD } from '../lib/quotaManager';
 
 const MAX_IMAGES_PER_SCAN = 5;
 
-async function compressImage(base64: string): Promise<string> {
-  return new Promise((resolve) => {
+// Nouvelle fonction pour compresser directement depuis un fichier sans lire le base64 volumineux en RAM
+async function compressImageFile(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
     const img = new Image();
+    
     img.onload = () => {
+      // Libère immédiatement la mémoire de l'ObjectURL
+      URL.revokeObjectURL(objectUrl);
+      
       const canvas = document.createElement('canvas');
       const MAX_SIZE = 1024;
       let width = img.width;
@@ -30,14 +36,23 @@ async function compressImage(base64: string): Promise<string> {
       
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d')!;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return reject(new Error("Erreur de contexte canvas"));
+      }
+      
       ctx.drawImage(img, 0, 0, width, height);
-      const compressed = canvas.toDataURL('image/jpeg', 0.7);
-      resolve(compressed.split('base64,')[1]);
+      // Réduit la qualité à 0.6 pour économiser beaucoup de mémoire (idéal pour le texte)
+      const compressed = canvas.toDataURL('image/jpeg', 0.6); 
+      resolve(compressed); // Retourne la data URL complète
     };
-    img.src = base64.startsWith('data:') 
-      ? base64 
-      : 'data:image/jpeg;base64,' + base64;
+    
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Le chargement de l'image a échoué"));
+    };
+    
+    img.src = objectUrl;
   });
 }
 
@@ -49,30 +64,40 @@ export default function Scan() {
   const [images, setImages] = useState<string[]>([]);
   const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [isProcessingFiles, setIsProcessingFiles] = useState(false);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length === 0) return;
 
     if (images.length + files.length > MAX_IMAGES_PER_SCAN) {
-      setError(`Vous ne pouvez sélectionner que ${MAX_IMAGES_PER_SCAN} photos maximum.`);
+      setError(`Vous ne pouvez sélectionner que ${MAX_IMAGES_PER_SCAN} photos maximum au total.`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
 
     setError(null);
+    setIsProcessingFiles(true);
+    setLoadingMessage("Compression des images...");
 
-    // Convert files to base64
-    files.forEach(file => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImages(prev => [...prev, reader.result as string]);
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    // Reset input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+    try {
+      const newCompressedImages: string[] = [];
+      // Compression séquentielle pour ne pas saturer la RAM des vieux téléphones
+      for (const file of files) {
+        const compressedBase64 = await compressImageFile(file);
+        newCompressedImages.push(compressedBase64);
+      }
+      
+      setImages(prev => [...prev, ...newCompressedImages]);
+    } catch (err) {
+      console.error("Compression error:", err);
+      setError("Erreur lors de la lecture des images. Essayez une par une.");
+    } finally {
+      setIsProcessingFiles(false);
+      setLoadingMessage(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     }
   };
 
@@ -100,9 +125,10 @@ export default function Scan() {
     let finalExercises: any[] = [];
 
     try {
-      // 1. Call Gemini to generate the summary
-      const compressedImage = await compressImage(images[0]);
-      const summary = await generateSummary(compressedImage, "image_base64");
+      // Les images sont DÉJÀ compressées grâce à compressImageFile
+      // Gemini attend le base64 pur (sans le data:image/jpeg;base64,)
+      const base64Data = images[0].split(',')[1];
+      const summary = await generateSummary(base64Data, "image_base64");
 
       if (summary.includes("⏳")) {
         setError(summary);
@@ -162,7 +188,6 @@ export default function Scan() {
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Une erreur est survenue lors de l'analyse.");
-    } finally {
       setLoadingMessage(null);
     }
   };
@@ -206,10 +231,17 @@ export default function Scan() {
             {images.length < MAX_IMAGES_PER_SCAN && (
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="aspect-[3/4] rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-[#003366] hover:text-[#003366] transition-colors"
+                disabled={isProcessingFiles}
+                className="aspect-[3/4] rounded-2xl border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:bg-gray-50 hover:border-[#003366] hover:text-[#003366] transition-colors disabled:opacity-50"
               >
-                <Upload size={24} className="mb-2" />
-                <span className="text-xs font-medium text-center px-2">Ajouter une page</span>
+                {isProcessingFiles ? (
+                  <Loader2 className="w-6 h-6 animate-spin mb-2" />
+                ) : (
+                  <Upload size={24} className="mb-2" />
+                )}
+                <span className="text-xs font-medium text-center px-2">
+                  {isProcessingFiles ? "Compression..." : "Ajouter une page"}
+                </span>
               </button>
             )}
           </div>
@@ -219,9 +251,11 @@ export default function Scan() {
         {images.length === 0 && (
           <div className="bg-white rounded-3xl p-8 shadow-sm border border-gray-100 text-center">
             <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4 text-[#003366]">
-              <Camera size={40} strokeWidth={1.5} />
+              {isProcessingFiles ? <Loader2 className="w-10 h-10 animate-spin" /> : <Camera size={40} strokeWidth={1.5} />}
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Prenez votre cours en photo</h3>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">
+              {isProcessingFiles ? "Traitement des images..." : "Prenez votre cours en photo"}
+            </h3>
             <p className="text-sm text-gray-500 mb-6">
               Assurez-vous que le texte soit bien lisible. Vous pouvez ajouter jusqu'à {MAX_IMAGES_PER_SCAN} pages.
             </p>
@@ -229,10 +263,11 @@ export default function Scan() {
             <div className="flex flex-col gap-3">
               <button 
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-3.5 bg-[#003366] text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-[#002244] transition-colors"
+                disabled={isProcessingFiles}
+                className="w-full py-3.5 bg-[#003366] text-white rounded-xl font-medium flex items-center justify-center gap-2 hover:bg-[#002244] transition-colors disabled:opacity-50"
               >
-                <Camera size={20} />
-                Ouvrir l'appareil photo
+                {isProcessingFiles ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera size={20} />}
+                {isProcessingFiles ? "Patientez..." : "Ouvrir l'appareil photo / Ajouter"}
               </button>
             </div>
           </div>
@@ -241,7 +276,6 @@ export default function Scan() {
         <input 
           type="file" 
           accept="image/*" 
-          capture="environment" 
           multiple 
           className="hidden" 
           ref={fileInputRef}
@@ -252,7 +286,7 @@ export default function Scan() {
         {images.length > 0 && (
           <button
             onClick={handleScan}
-            disabled={loadingMessage !== null}
+            disabled={loadingMessage !== null || isProcessingFiles}
             className="w-full py-4 bg-[#FFCC00] text-[#003366] rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loadingMessage !== null ? (
