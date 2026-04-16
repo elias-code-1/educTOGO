@@ -89,11 +89,6 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
       // Extraction des données base64 si nécessaire
       let base64Data = content.includes("base64,") ? content.split("base64,")[1] : content;
       
-      // Tronquer si la longueur dépasse 500000 caractères
-      if (base64Data.length > 500000) {
-        base64Data = base64Data.substring(0, 500000);
-      }
-      
       contents = [{
         role: "user",
         parts: [
