@@ -75,8 +75,8 @@ export default function RoadmapGenerator() {
       // Save to Firestore
       const docRef = doc(db, 'users', user.uid, 'roadmaps', 'current_text');
       await setDoc(docRef, {
-        weakSubjects: subjectsArray,
-        availableWeeks,
+        targetGrade: 20, // Compatible field
+        availability: weakSubjects, // Compatible field
         plan: response,
         generatedAt: serverTimestamp(),
         uid: user.uid
