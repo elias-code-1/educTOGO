@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { generateQuiz, QuizQuestion } from '../lib/gemini';
 import { X, CheckCircle2, XCircle, Loader2, BrainCircuit, AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { useAuth } from '../contexts/AuthContext';
+import QuotaBar from './QuotaBar';
+import { isQuotaExhausted, incrementRPD } from '../lib/quotaManager';
 
 interface QuizModalProps {
   chapter: { subjectId: string, subjectName: string, chapterId: string, title: string };
@@ -10,6 +13,7 @@ interface QuizModalProps {
 }
 
 export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProps) {
+  const { user } = useAuth();
   const [questions, setQuestions] = useState<QuizQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -24,18 +28,27 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
   }, [chapter]);
 
   const handleGenerateQuiz = async () => {
+    if (!user) return;
+    
     setLoading(true);
     setError(null);
     setErrorMessage(null);
     
     try {
+      if (await isQuotaExhausted(user.uid)) {
+        setErrorMessage("🔴 Quota IA épuisé. Renouvellement à 1h du matin.");
+        setLoading(false);
+        return;
+      }
+
       const data = await generateQuiz(chapter.subjectName, chapter.title, "moyen");
       
       if (data.length === 0) {
-        setErrorMessage("⏳ Quota IA atteint ou erreur technique. Réessaie après minuit.");
+        setErrorMessage("⏳ Erreur technique. Réessaie après quelques instants.");
         return;
       }
       
+      await incrementRPD(user.uid, 1);
       setQuestions(data);
     } catch (err) {
       console.error(err);
@@ -84,7 +97,11 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
             <AlertCircle size={32} />
           </div>
           <p className="text-amber-700 font-medium mb-4">{errorMessage}</p>
-          <button onClick={handleGenerateQuiz} className="px-6 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700">
+          <button 
+            onClick={handleGenerateQuiz} 
+            disabled={errorMessage.includes("épuisé")}
+            className="px-6 py-2 bg-amber-600 text-white rounded-lg font-medium hover:bg-amber-700 disabled:opacity-50"
+          >
             Réessayer
           </button>
         </div>
@@ -147,6 +164,8 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
     }
 
     const currentQ = questions[currentQuestionIndex];
+    if (!currentQ) return null;
+
     const hasAnswered = selectedAnswers[currentQuestionIndex] !== undefined;
 
     return (
@@ -220,6 +239,7 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
         </div>
         
         <div className="p-6 md:p-8 overflow-y-auto">
+          {user && <QuotaBar uid={user.uid} />}
           {renderQuizContent()}
         </div>
       </div>

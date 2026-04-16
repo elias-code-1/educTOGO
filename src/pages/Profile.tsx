@@ -1,9 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType, storage } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
-import { User as UserIcon, Mail, Calendar, LogOut, Save, Loader2, Trash2, AlertTriangle } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { User as UserIcon, Mail, Calendar, LogOut, Save, Loader2, Trash2, AlertTriangle, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -17,6 +18,10 @@ export default function Profile() {
   const [createdAt, setCreatedAt] = useState<Date | null>(null);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const [uploading, setUploading] = useState(false);
+  const [photoURL, setPhotoURL] = useState(user?.photoURL || null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -40,6 +45,72 @@ export default function Profile() {
     
     fetchProfile();
   }, [user]);
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !user) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setMessage({ type: 'error', text: 'Image trop lourde (max 5MB)' });
+      return;
+    }
+
+    setUploading(true);
+    setMessage({ type: '', text: '' });
+
+    try {
+      // Client-side compression
+      const compressedBlob = await new Promise<Blob>((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_SIZE = 400;
+          let width = img.width;
+          let height = img.height;
+          
+          if (width > height && width > MAX_SIZE) {
+            height *= MAX_SIZE / width;
+            width = MAX_SIZE;
+          } else if (height > MAX_SIZE) {
+            width *= MAX_SIZE / height;
+            height = MAX_SIZE;
+          }
+          
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d')!;
+          ctx.drawImage(img, 0, 0, width, height);
+          
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error('Canvas to Blob failed'));
+          }, 'image/jpeg', 0.8);
+        };
+        img.onerror = () => reject(new Error('Image onload failed'));
+        img.src = URL.createObjectURL(file);
+      });
+
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, `avatars/${user.uid}/profile.jpg`);
+      await uploadBytes(storageRef, compressedBlob, { contentType: 'image/jpeg' });
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Update Auth Profile
+      await updateProfile(user, { photoURL: downloadURL });
+
+      // Update Firestore Profile
+      await updateDoc(doc(db, 'users', user.uid), { photoURL: downloadURL });
+
+      setPhotoURL(downloadURL);
+      setMessage({ type: 'success', text: 'Photo mise à jour ✅' });
+    } catch (error) {
+      console.error(error);
+      setMessage({ type: 'error', text: 'Erreur lors de la mise à jour de la photo' });
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -129,13 +200,31 @@ export default function Profile() {
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
         <div className="p-8">
           <div className="flex flex-col sm:flex-row items-center gap-6 mb-8 text-center sm:text-left">
-            <div className="w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl font-bold overflow-hidden shrink-0">
-              {user?.photoURL ? (
-                <img src={user.photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+            <div 
+              className="relative w-24 h-24 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-3xl font-bold overflow-hidden shrink-0 cursor-pointer group"
+              onClick={() => !uploading && fileInputRef.current?.click()}
+            >
+              {photoURL ? (
+                <img src={photoURL} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
               ) : (
                 displayName.charAt(0).toUpperCase() || user?.email?.charAt(0).toUpperCase() || 'U'
               )}
+              
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                {uploading ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-8 h-8 text-white" />}
+              </div>
             </div>
+            
+            <input 
+              type="file" 
+              accept="image/*" 
+              capture="user"
+              className="hidden"
+              ref={fileInputRef}
+              onChange={handlePhotoChange}
+              disabled={uploading}
+            />
+            
             <div>
               <h2 className="text-2xl font-bold text-gray-900">{displayName || 'Élève'}</h2>
               <p className="text-gray-500 flex items-center justify-center sm:justify-start gap-2 mt-2">

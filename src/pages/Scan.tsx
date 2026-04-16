@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { Camera, Upload, X, Loader2, AlertCircle, CheckCircle2, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, collection, addDoc } from 'firebase/firestore';
-import { generateSummary } from '../lib/gemini';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { generateSummary, generateQuiz } from '../lib/gemini';
 import { Link } from 'react-router-dom';
+import QuotaBar from '../components/QuotaBar';
+import { isQuotaExhausted, incrementRPD } from '../lib/quotaManager';
 
-const MAX_SCANS_PER_DAY = 5;
 const MAX_IMAGES_PER_SCAN = 5;
 
 async function compressImage(base64: string): Promise<string> {
@@ -46,36 +47,8 @@ export default function Scan() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [images, setImages] = useState<string[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [scansRemaining, setScansRemaining] = useState<number | null>(null);
-  const [checkingQuota, setCheckingQuota] = useState(true);
-
-  // Check quota on mount
-  useEffect(() => {
-    async function checkQuota() {
-      if (!user) return;
-      
-      try {
-        const today = new Date().toISOString().split('T')[0];
-        const quotaRef = doc(db, 'users', user.uid, 'quotas', today);
-        const quotaDoc = await getDoc(quotaRef);
-        
-        if (quotaDoc.exists()) {
-          const used = quotaDoc.data().scansUsed || 0;
-          setScansRemaining(Math.max(0, MAX_SCANS_PER_DAY - used));
-        } else {
-          setScansRemaining(MAX_SCANS_PER_DAY);
-        }
-      } catch (err) {
-        console.error("Erreur vérification quota:", err);
-      } finally {
-        setCheckingQuota(false);
-      }
-    }
-    
-    checkQuota();
-  }, [user]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
@@ -113,34 +86,64 @@ export default function Scan() {
       setError("Veuillez ajouter au moins une photo de votre cours.");
       return;
     }
-    if (scansRemaining !== null && scansRemaining <= 0) {
-      setError("Vous avez atteint votre limite de scans pour aujourd'hui. Revenez demain !");
+
+    if (await isQuotaExhausted(user.uid)) {
+      setError("🔴 Quota IA épuisé. Renouvellement à 1h du matin.");
       return;
     }
 
-    setLoading(true);
+    setLoadingMessage("📸 Analyse de l'image...");
     setError(null);
+
+    let finalSummary = "";
+    let reflectionResponse = "Résumé généré par l'IA.";
+    let finalExercises: any[] = [];
 
     try {
       // 1. Call Gemini to generate the summary
-      // We use the first image for now, or we could join them if the API allowed multiple.
-      // But generateSummary signature takes one string.
-      // I'll use the first image or join them if I had a multi-image function.
-      // The user's generateSummary signature is: generateSummary(content: string, type: "text" | "image_base64")
-      // I'll send the first image or a combined one if possible.
-      // Actually, I'll just send the first one for simplicity as per the signature.
       const compressedImage = await compressImage(images[0]);
       const summary = await generateSummary(compressedImage, "image_base64");
 
       if (summary.includes("⏳")) {
         setError(summary);
+        setLoadingMessage(null);
         return;
       }
+      
+      await incrementRPD(user.uid, 1);
+      finalSummary = summary;
 
-      // 2. Save to Firestore
-      // Firestore document limit is 1MB. We truncate the summary if it's too long to prevent errors.
-      // 1MB is roughly 1 million characters, but we'll be safe and truncate at 800,000.
-      let finalSummary = summary;
+      // 2. Generate interactive prompt (reflection)
+      if (!await isQuotaExhausted(user.uid)) {
+        setLoadingMessage("💭 Génération de la réflexion...");
+        reflectionResponse = await generateSummary(
+          `À partir de ce résumé de cours, génère UNE seule question de réflexion profonde et stimulante pour un élève de Première D. La question doit pousser à la réflexion personnelle, pas juste réciter le cours. Réponds UNIQUEMENT avec la question, rien d'autre.\n\n Résumé : ${summary}`,
+          "text"
+        );
+        await incrementRPD(user.uid, 1);
+      }
+
+      // 3. Generate exercises
+      if (!await isQuotaExhausted(user.uid)) {
+        setLoadingMessage("📝 Création des exercices...");
+        const quizQuestions = await generateQuiz(
+          "Cours scanné",
+          summary.substring(0, 200),
+          "moyen"
+        );
+        
+        finalExercises = quizQuestions.map(q => ({
+          question: q.question,
+          options: q.options,
+          answer: q.options[q.correctIndex],
+          explanation: q.explanation
+        }));
+        await incrementRPD(user.uid, 1);
+      }
+
+      setLoadingMessage("💾 Sauvegarde...");
+
+      // 4. Save to Firestore
       if (finalSummary.length > 800000) {
         finalSummary = finalSummary.substring(0, 800000) + "\n\n[Résumé tronqué car trop long pour être sauvegardé]";
       }
@@ -148,39 +151,25 @@ export default function Scan() {
       const scanRef = await addDoc(collection(db, 'users', user.uid, 'scans'), {
         createdAt: serverTimestamp(),
         summary: finalSummary,
-        interactivePrompt: "Résumé généré par l'IA.",
-        exercises: [],
+        interactivePrompt: reflectionResponse,
+        exercises: finalExercises,
         imageCount: images.length
       });
 
-      // 3. Update Quota
-      const today = new Date().toISOString().split('T')[0];
-      const quotaRef = doc(db, 'users', user.uid, 'quotas', today);
-      const quotaDoc = await getDoc(quotaRef);
-      
-      if (quotaDoc.exists()) {
-        await updateDoc(quotaRef, { scansUsed: increment(1) });
-      } else {
-        await setDoc(quotaRef, { scansUsed: 1, date: today });
-      }
-
-      // 4. Navigate to result page
+      // Navigate to result page
       navigate(`/study-pack/${scanRef.id}`);
 
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Une erreur est survenue lors de l'analyse.");
     } finally {
-      setLoading(false);
+      setLoadingMessage(null);
     }
   };
 
-  if (checkingQuota) {
-    return <div className="flex justify-center items-center h-64"><Loader2 className="w-8 h-8 animate-spin text-[#003366]" /></div>;
-  }
-
   return (
     <div className="pb-8">
+      {user && <QuotaBar uid={user.uid} />}
       <header className="bg-[#003366] text-white px-4 pt-6 pb-8 rounded-b-[40px] shadow-sm mb-6 relative">
         <Link to="/scan-history" className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20">
           <History size={20} />
@@ -189,16 +178,6 @@ export default function Scan() {
         <p className="text-white/80 text-sm">
           Prenez en photo votre cours, l'IA génère un résumé et des exercices.
         </p>
-        
-        <div className="mt-4 flex items-center gap-2 bg-white/10 p-3 rounded-xl">
-          <div className="w-10 h-10 rounded-full bg-[#FFCC00] flex items-center justify-center text-[#003366] font-bold">
-            {scansRemaining}
-          </div>
-          <div>
-            <p className="text-sm font-medium">Scans restants aujourd'hui</p>
-            <p className="text-xs text-white/60">Renouvellement à minuit</p>
-          </div>
-        </div>
       </header>
 
       <div className="px-4 space-y-6">
@@ -273,13 +252,13 @@ export default function Scan() {
         {images.length > 0 && (
           <button
             onClick={handleScan}
-            disabled={loading || scansRemaining === 0}
+            disabled={loadingMessage !== null}
             className="w-full py-4 bg-[#FFCC00] text-[#003366] rounded-2xl font-bold text-lg flex items-center justify-center gap-2 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {loading ? (
+            {loadingMessage !== null ? (
               <>
                 <Loader2 className="w-6 h-6 animate-spin" />
-                Analyse en cours (max 1 min)...
+                {loadingMessage}
               </>
             ) : (
               <>

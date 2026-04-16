@@ -179,6 +179,13 @@ service cloud.firestore {
         allow update: if isOwner(userId) && isValidScan();
         allow delete: if isOwner(userId);
       }
+
+      match /settings/{settingId} {
+        allow read: if isOwner(userId);
+        allow create: if isOwner(userId);
+        allow update: if isOwner(userId);
+        allow delete: if isOwner(userId);
+      }
     }
   }
 }
