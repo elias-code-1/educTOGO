@@ -41,7 +41,7 @@ export default function QuizModal({ chapter, onClose, onSuccess }: QuizModalProp
         return;
       }
 
-      const data = await generateQuiz(chapter.subjectName, chapter.title, "moyen");
+      const data = await generateQuiz(chapter.subjectName, chapter.title, "moyen", user.uid);
       
       if (data.length === 0) {
         setErrorMessage("⏳ Erreur technique. Réessaie après quelques instants.");

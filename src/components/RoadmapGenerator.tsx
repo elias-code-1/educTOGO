@@ -63,7 +63,7 @@ export default function RoadmapGenerator() {
     
     try {
       const subjectsArray = weakSubjects.split(',').map(s => s.trim());
-      const response = await generateRoadmap(subjectsArray, availableWeeks);
+      const response = await generateRoadmap(subjectsArray, availableWeeks, user.uid);
       
       if (response.includes("⏳")) {
         setError(response);

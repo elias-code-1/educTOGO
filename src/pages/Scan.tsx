@@ -128,9 +128,9 @@ export default function Scan() {
       // Les images sont DÉJÀ compressées grâce à compressImageFile
       // Gemini attend le base64 pur (sans le data:image/jpeg;base64,)
       const base64Data = images[0].split(',')[1];
-      const summary = await generateSummary(base64Data, "image_base64");
+      const summary = await generateSummary(base64Data, "image_base64", user.uid);
 
-      if (summary.includes("⏳")) {
+      if (summary.includes("⏳") || summary.includes("épuisé")) {
         setError(summary);
         setLoadingMessage(null);
         return;
@@ -144,7 +144,8 @@ export default function Scan() {
         setLoadingMessage("💭 Génération de la réflexion...");
         reflectionResponse = await generateSummary(
           `À partir de ce résumé de cours, génère UNE seule question de réflexion profonde et stimulante pour un élève de Première D. La question doit pousser à la réflexion personnelle, pas juste réciter le cours. Réponds UNIQUEMENT avec la question, rien d'autre.\n\n Résumé : ${summary}`,
-          "text"
+          "text",
+          user.uid
         );
         await incrementRPD(user.uid, 1);
       }
@@ -155,7 +156,8 @@ export default function Scan() {
         const quizQuestions = await generateQuiz(
           "Cours scanné",
           summary.substring(0, 200),
-          "moyen"
+          "moyen",
+          user.uid
         );
         
         finalExercises = quizQuestions.map(q => ({
