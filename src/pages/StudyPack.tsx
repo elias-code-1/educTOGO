@@ -3,8 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { ArrowLeft, BookOpen, BrainCircuit, CheckCircle2, ChevronRight, MessageSquare, PlayCircle } from 'lucide-react';
+import { ArrowLeft, BookOpen, BrainCircuit, CheckCircle2, ChevronRight, MessageSquare, Download, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { exportToPdf } from '../lib/exportPdf';
 
 export default function StudyPack() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,13 @@ export default function StudyPack() {
   const [activeTab, setActiveTab] = useState<'summary' | 'interactive' | 'exercises'>('summary');
   const [currentExercise, setCurrentExercise] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExportPdf = async () => {
+    setIsExporting(true);
+    await exportToPdf(pack.summary, "resume-cours");
+    setIsExporting(false);
+  };
 
   useEffect(() => {
     async function fetchPack() {
@@ -81,8 +89,16 @@ export default function StudyPack() {
         {/* SUMMARY TAB */}
         {activeTab === 'summary' && (
           <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-            <h2 className="text-xl font-bold text-[#003366] mb-4 flex items-center gap-2">
-              <BookOpen className="text-[#FFCC00]" /> L'essentiel à retenir
+             <h2 className="text-xl font-bold text-[#003366] mb-4 flex items-center justify-between">
+              <span className="flex items-center gap-2"><BookOpen className="text-[#FFCC00]" /> L'essentiel à retenir</span>
+              <button 
+                onClick={handleExportPdf}
+                disabled={isExporting}
+                className="text-xs text-[#003366] border border-[#003366] px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-blue-50 disabled:opacity-50"
+              >
+                {isExporting ? <Loader2 className="w-3 h-3 animate-spin"/> : <Download size={14} />} 
+                {isExporting ? 'Génération...' : 'Télécharger PDF'}
+              </button>
             </h2>
             <div className="prose prose-sm md:prose-base prose-blue max-w-none text-gray-700">
               <ReactMarkdown>{pack.summary}</ReactMarkdown>

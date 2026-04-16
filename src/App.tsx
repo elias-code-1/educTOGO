@@ -11,6 +11,7 @@ import Curriculum from './pages/Curriculum';
 import Analytics from './pages/Analytics';
 import Profile from './pages/Profile';
 import Scan from './pages/Scan';
+import ScanHistory from './pages/ScanHistory';
 import StudyPack from './pages/StudyPack';
 import NotFound from './pages/NotFound';
 
@@ -261,6 +262,7 @@ export default function App() {
             <Route path="/analytics" element={<PrivateRoute><Layout><Analytics /></Layout></PrivateRoute>} />
             <Route path="/profile" element={<PrivateRoute><Layout><Profile /></Layout></PrivateRoute>} />
             <Route path="/scan" element={<PrivateRoute><Layout><Scan /></Layout></PrivateRoute>} />
+            <Route path="/scan-history" element={<PrivateRoute><Layout><ScanHistory /></Layout></PrivateRoute>} />
             <Route path="/study-pack/:id" element={<PrivateRoute><Layout><StudyPack /></Layout></PrivateRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

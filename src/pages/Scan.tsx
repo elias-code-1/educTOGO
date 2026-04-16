@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Upload, X, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Camera, Upload, X, Loader2, AlertCircle, CheckCircle2, History } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, updateDoc, increment, serverTimestamp, collection, addDoc } from 'firebase/firestore';
 import { generateSummary } from '../lib/gemini';
+import { Link } from 'react-router-dom';
 
 const MAX_SCANS_PER_DAY = 5;
 const MAX_IMAGES_PER_SCAN = 5;
@@ -137,9 +138,16 @@ export default function Scan() {
       }
 
       // 2. Save to Firestore
+      // Firestore document limit is 1MB. We truncate the summary if it's too long to prevent errors.
+      // 1MB is roughly 1 million characters, but we'll be safe and truncate at 800,000.
+      let finalSummary = summary;
+      if (finalSummary.length > 800000) {
+        finalSummary = finalSummary.substring(0, 800000) + "\n\n[Résumé tronqué car trop long pour être sauvegardé]";
+      }
+
       const scanRef = await addDoc(collection(db, 'users', user.uid, 'scans'), {
         createdAt: serverTimestamp(),
-        summary: summary,
+        summary: finalSummary,
         interactivePrompt: "Résumé généré par l'IA.",
         exercises: [],
         imageCount: images.length
@@ -173,7 +181,10 @@ export default function Scan() {
 
   return (
     <div className="pb-8">
-      <header className="bg-[#003366] text-white px-4 pt-6 pb-8 rounded-b-[40px] shadow-sm mb-6">
+      <header className="bg-[#003366] text-white px-4 pt-6 pb-8 rounded-b-[40px] shadow-sm mb-6 relative">
+        <Link to="/scan-history" className="absolute top-4 right-4 p-2 bg-white/10 rounded-full hover:bg-white/20">
+          <History size={20} />
+        </Link>
         <h1 className="text-2xl font-bold mb-2">Scanner un cours</h1>
         <p className="text-white/80 text-sm">
           Prenez en photo votre cours, l'IA génère un résumé et des exercices.

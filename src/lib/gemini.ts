@@ -41,7 +41,7 @@ async function withTimeout<T>(promise: Promise<T>, timeoutMs: number = 30000): P
  * Génère un résumé de cours (texte ou image)
  */
 export async function generateSummary(content: string, type: "text" | "image_base64"): Promise<string> {
-  const systemPrompt = `Tu es un professeur expert pour les élèves de Première D au Togo. Quand on te donne un cours, tu produis un résumé complet et bien structuré. 
+  const promptText = `Tu es un professeur expert pour les élèves de Première D au Togo. Quand on te donne un cours, tu produis un résumé complet et bien structuré. 
 
 Respecte OBLIGATOIREMENT ce format :
 
@@ -78,6 +78,10 @@ Respecte OBLIGATOIREMENT ce format :
 
 ---
 Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permettre à un élève de réviser sans avoir besoin de relire le cours original.`;
+
+  const promptImage = "Tu es prof de Première D au Togo. Analyse cette photo de cours et génère un résumé structuré complet en français avec : titre, introduction, parties numérotées avec points clés, définitions importantes, astuce BAC.";
+
+  const systemPrompt = type === "text" ? promptText : promptImage;
   
   try {
     let contents: any[];

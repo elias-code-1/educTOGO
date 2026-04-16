@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import { generateRoadmap } from '../lib/gemini';
 import { useAuth } from '../contexts/AuthContext';
-import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { Loader2, Sparkles, Calendar, Target, Clock, AlertCircle } from 'lucide-react';
+import { db } from '../lib/firebase';
+import { doc, getDoc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
+import { Loader2, Sparkles, Calendar, Target, Clock, AlertCircle, Repeat, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { exportToPdf } from '../lib/exportPdf';
 
 export default function RoadmapGenerator() {
   const { user } = useAuth();
@@ -13,6 +14,26 @@ export default function RoadmapGenerator() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [planText, setPlanText] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleRegenerate = async () => {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, 'users', user.uid, 'roadmaps', 'current_text'));
+      setPlanText(null);
+      setIsModalOpen(false);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleExportPdf = async () => {
+    if (!planText) return;
+    setIsExporting(true);
+    await exportToPdf(planText, "roadmap-revision");
+    setIsExporting(false);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -133,13 +154,36 @@ export default function RoadmapGenerator() {
               <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                 <Calendar className="text-indigo-600" /> Ton planning de révision
               </h3>
-              <button 
-                onClick={() => setPlanText(null)}
-                className="text-sm text-indigo-600 font-medium hover:underline"
-              >
-                Recommencer
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => setIsModalOpen(true)}
+                  className="text-xs text-indigo-600 border border-indigo-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-indigo-50 transition-colors"
+                >
+                  <Repeat size={14} /> Regénérer
+                </button>
+                <button 
+                  onClick={handleExportPdf}
+                  disabled={isExporting}
+                  className="text-xs text-white bg-indigo-600 px-3 py-1.5 rounded-lg flex items-center gap-1.5 hover:bg-indigo-700 transition-colors disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download size={14} />} 
+                  {isExporting ? '...' : 'PDF'}
+                </button>
+              </div>
             </div>
+
+            {isModalOpen && (
+              <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+                <div className="bg-white rounded-3xl p-6 max-w-sm w-full">
+                  <h3 className="text-lg font-bold text-gray-900 mb-2">Es-tu sûr ?</h3>
+                  <p className="text-sm text-gray-600 mb-6">Ta roadmap actuelle sera remplacée.</p>
+                  <div className="flex gap-3">
+                    <button onClick={() => setIsModalOpen(false)} className="flex-1 py-2.5 rounded-xl border border-gray-200">Annuler</button>
+                    <button onClick={handleRegenerate} className="flex-1 py-2.5 rounded-xl bg-red-600 text-white">Confirmer</button>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 prose prose-indigo max-w-none">
               <ReactMarkdown>{planText}</ReactMarkdown>

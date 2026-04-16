@@ -126,7 +126,7 @@ service cloud.firestore {
              data.createdAt is timestamp &&
              data.summary is string && data.summary.size() > 0 &&
              data.interactivePrompt is string && data.interactivePrompt.size() > 0 &&
-             data.exercises is list && data.exercises.size() > 0 && data.exercises.size() <= 20 &&
+             data.exercises is list && data.exercises.size() >= 0 && data.exercises.size() <= 20 &&
              data.imageCount is number && data.imageCount > 0 && data.imageCount <= 5;
     }
 
