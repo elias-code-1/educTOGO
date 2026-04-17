@@ -6,7 +6,16 @@ import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'fir
 // 1. Lire la liste de clés depuis l'environnement
 export function getGeminiKeys(): string[] {
   const keysString = import.meta.env.VITE_GEMINI_API_KEYS || import.meta.env.VITE_GEMINI_API_KEY || "";
-  return keysString.split(',').map(k => k.trim()).filter(Boolean);
+  const keys = keysString.split(',').map(k => k.trim()).filter(Boolean);
+  
+  if (keys.length === 0) {
+    console.error("⚠️ ERREUR CRITIQUE : Aucune clé Gemini (VITE_GEMINI_API_KEYS) n'a été trouvée dans l'environnement !");
+  } else {
+    // Affiche juste le nombre de clés chargées pour vérifier que ça marche, sans exposer la valeur complète
+    console.log(`✅ quotaManager: ${keys.length} clées Gemini chargées depuis l'environnement.`);
+  }
+  
+  return keys;
 }
 
 // 2. Capacités Pures des Clés

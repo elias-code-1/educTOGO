@@ -11,40 +11,68 @@ import { isQuotaExhausted, incrementRPD } from '../lib/quotaManager';
 
 const MAX_IMAGES_PER_SCAN = 5;
 
-// Nouvelle fonction pour compresser directement depuis un fichier sans lire le base64 volumineux en RAM
+// Nouvelle fonction pour compresser directement depuis un fichier sans faire planter la RAM (OOM Crash)
 async function compressImageFile(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const objectUrl = URL.createObjectURL(file);
-    const img = new Image();
+    let img = new Image();
     
     img.onload = () => {
-      // Libère immédiatement la mémoire de l'ObjectURL
+      // 0. Désactiver le handler pour éviter une boucle lors du nettoyage
+      img.onload = null;
+      img.onerror = null;
+
+      // 1. Libère immédiatement l'URL
       URL.revokeObjectURL(objectUrl);
       
-      const canvas = document.createElement('canvas');
-      const MAX_SIZE = 1024;
+      // 2. Création du canvas
+      let canvas: HTMLCanvasElement | null = document.createElement('canvas');
+      const MAX_SIZE = 800; // Réduit de 1024 à 800 pour sauver la RAM (Lisible pour un cours)
       let width = img.width;
       let height = img.height;
       
       if (width > height && width > MAX_SIZE) {
-        height = (height * MAX_SIZE) / width;
+        height = Math.round((height * MAX_SIZE) / width);
         width = MAX_SIZE;
       } else if (height > MAX_SIZE) {
-        width = (width * MAX_SIZE) / height;
+        width = Math.round((width * MAX_SIZE) / height);
         height = MAX_SIZE;
       }
       
       canvas.width = width;
       canvas.height = height;
-      const ctx = canvas.getContext('2d');
+      
+      let ctx = canvas.getContext('2d');
       if (!ctx) {
         return reject(new Error("Erreur de contexte canvas"));
       }
       
+      // 3. Dessin sur le canvas
       ctx.drawImage(img, 0, 0, width, height);
-      // Réduit la qualité à 0.6 pour économiser beaucoup de mémoire (idéal pour le texte)
-      const compressed = canvas.toDataURL('image/jpeg', 0.6); 
-      resolve(compressed); // Retourne la data URL complète
+      
+      // 4. Compression (Qualité 0.5 au lieu de 0.6 pour le Poids/RAM)
+      const compressed = canvas.toDataURL('image/jpeg', 0.5); 
+      
+      // ==========================================
+      // NETTOYAGE MANUEL EXTRÊME DE LA RAM (Anti-Crash)
+      // ==========================================
+      
+      // A. Vider le contexte
+      ctx.clearRect(0, 0, width, height);
+      
+      // B. Détruire la taille du canvas
+      canvas.width = 0;
+      canvas.height = 0;
+      
+      // C. Remplacer l'image native lourde par un pixel vide pour forcer le garbage collector
+      img.src = "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=";
+      
+      // D. Casser les références
+      ctx = null;
+      canvas = null;
+      (img as any) = null;
+      
+      resolve(compressed);
     };
     
     img.onerror = () => {
@@ -125,10 +153,10 @@ export default function Scan() {
     let finalExercises: any[] = [];
 
     try {
-      // Les images sont DÉJÀ compressées grâce à compressImageFile
-      // Gemini attend le base64 pur (sans le data:image/jpeg;base64,)
-      const base64Data = images[0].split(',')[1];
-      const summary = await generateSummary(base64Data, "image_base64", user.uid);
+      // Préparer un tableau de base64 pour envoyer toutes les images
+      const base64DataArray = images.map(img => img.split(',')[1]);
+      
+      const summary = await generateSummary(base64DataArray as any, "image_base64", user.uid);
 
       if (summary.includes("⏳") || summary.includes("épuisé")) {
         setError(summary);

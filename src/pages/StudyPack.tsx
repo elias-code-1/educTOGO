@@ -5,6 +5,9 @@ import { db } from '../lib/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ArrowLeft, BookOpen, BrainCircuit, CheckCircle2, ChevronRight, MessageSquare, Download, Loader2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { exportToPdf } from '../lib/exportPdf';
 
 export default function StudyPack() {
@@ -101,7 +104,12 @@ export default function StudyPack() {
               </button>
             </h2>
             <div className="prose prose-sm md:prose-base prose-blue max-w-none text-gray-700">
-              <ReactMarkdown>{pack.summary}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {pack.summary}
+              </ReactMarkdown>
             </div>
           </div>
         )}
@@ -141,13 +149,25 @@ export default function StudyPack() {
             </div>
 
             <div className="bg-white rounded-3xl p-6 shadow-sm border border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900 mb-4">{pack.exercises[currentExercise].question}</h3>
+              <h3 className="text-lg font-bold text-gray-900 mb-4 flex-col">
+                <ReactMarkdown
+                    remarkPlugins={[remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
+                >
+                  {pack.exercises[currentExercise].question}
+                </ReactMarkdown>
+              </h3>
               
               {pack.exercises[currentExercise].options && pack.exercises[currentExercise].options.length > 0 && (
                 <div className="space-y-2 mb-6">
                   {pack.exercises[currentExercise].options.map((opt: string, idx: number) => (
                     <div key={idx} className="p-3 rounded-xl border border-gray-200 bg-gray-50 text-gray-700 text-sm">
-                      {opt}
+                      <ReactMarkdown
+                          remarkPlugins={[remarkMath]}
+                          rehypePlugins={[rehypeKatex]}
+                      >
+                         {opt}
+                      </ReactMarkdown>
                     </div>
                   ))}
                 </div>
@@ -164,11 +184,19 @@ export default function StudyPack() {
                 <div className="mt-4 animate-in fade-in slide-in-from-bottom-2">
                   <div className="p-4 bg-green-50 border border-green-200 rounded-2xl mb-4">
                     <p className="font-bold text-green-800 mb-1">Réponse :</p>
-                    <p className="text-green-700">{pack.exercises[currentExercise].answer}</p>
+                    <div className="text-green-700">
+                      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                        {pack.exercises[currentExercise].answer}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                   <div className="p-4 bg-gray-50 border border-gray-200 rounded-2xl">
                     <p className="font-bold text-gray-700 mb-1">Explication :</p>
-                    <p className="text-gray-600 text-sm">{pack.exercises[currentExercise].explanation}</p>
+                    <div className="text-gray-600 text-sm">
+                      <ReactMarkdown remarkPlugins={[remarkMath]} rehypePlugins={[rehypeKatex]}>
+                         {pack.exercises[currentExercise].explanation}
+                      </ReactMarkdown>
+                    </div>
                   </div>
                 </div>
               )}

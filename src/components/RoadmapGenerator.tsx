@@ -5,6 +5,9 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, serverTimestamp, deleteDoc } from 'firebase/firestore';
 import { Loader2, Sparkles, Calendar, Target, Clock, AlertCircle, Repeat, Download } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import 'katex/dist/katex.min.css';
 import { exportToPdf } from '../lib/exportPdf';
 
 export default function RoadmapGenerator() {
@@ -186,7 +189,12 @@ export default function RoadmapGenerator() {
             )}
             
             <div className="bg-gray-50 rounded-2xl p-6 border border-gray-100 prose prose-indigo max-w-none">
-              <ReactMarkdown>{planText}</ReactMarkdown>
+              <ReactMarkdown
+                remarkPlugins={[remarkMath]}
+                rehypePlugins={[rehypeKatex]}
+              >
+                {planText}
+              </ReactMarkdown>
             </div>
 
             {error && (

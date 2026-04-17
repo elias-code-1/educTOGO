@@ -1,14 +1,14 @@
 import { GoogleGenAI } from "@google/genai";
 import { getTotalUsed, getGeminiKeys, MAX_RPD_PER_KEY, forceSkipToNextKey } from "./quotaManager";
 
-const MODEL_NAME = "gemini-1.5-flash";
+const MODEL_NAME = "gemini-3-flash-preview";
 
 // On remplace le client statique par un client dynamique généré à la volée 
 // en fonction de la consommation actuelle du quota pour créer l'effet Key Rotation.
 async function getAiClient(uid: string) {
   const keys = getGeminiKeys();
   if (keys.length === 0) {
-    throw new Error("⚠️ GEMINI_API_KEY manquante");
+    throw new Error("GEMINI_API_KEY manquante");
   }
 
   const totalUsed = await getTotalUsed(uid);
@@ -66,7 +66,7 @@ async function executeWithRotationRetries<T>(
   }
 }
 
-export async function generateSummary(content: string, type: "text" | "image_base64", uid: string): Promise<string> {
+export async function generateSummary(content: string | string[], type: "text" | "image_base64", uid: string): Promise<string> {
   const promptText = `Tu es un professeur expert pour les élèves de Première D au Togo. Quand on te donne un cours, tu produis un résumé complet et bien structuré. 
 
 Respecte OBLIGATOIREMENT ce format :
@@ -97,9 +97,14 @@ Respecte OBLIGATOIREMENT ce format :
 [1 conseil pratique sur comment ce cours tombe souvent au BAC Première D]
 
 ---
+RÈGLE OBLIGATOIRE SUR LES MATHÉMATIQUES : 
+NE JAMAIS utiliser des signes de dollars simples "$" ou "$$" pour les formules. Tu DOIS ABSOLUMENT utiliser le vrai bloc de code mathématique ou laisser la formule en texte brut lisible avec des parenthèses simples.
+Ex: "Matière brute (mb) : ..." (PAS de symboles mystères). 
+Si tu as absolument besoin du formatage mathématique, utilise un bloc latex avec \`\`\`math ... \`\`\` 
+
 Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permettre à un élève de réviser sans avoir besoin de relire le cours original.`;
 
-  const promptImage = "Tu es prof de Première D au Togo. Analyse cette photo de cours et génère un résumé structuré complet en français avec : titre, introduction, parties numérotées avec points clés, définitions importantes, astuce BAC.";
+  const promptImage = "Tu es prof de Première D au Togo. Analyse ces pages de cours jointes et génère un résumé global structuré complet en français avec : titre, introduction, parties numérotées avec points clés, définitions importantes, astuce BAC.";
 
   const systemPrompt = type === "text" ? promptText : promptImage;
   
@@ -108,15 +113,22 @@ Réponds UNIQUEMENT en français. Le résumé doit être long, complet et permet
     const timeoutMs = type === "image_base64" ? 600000 : 30000;
     
     if (type === "text") {
-      contents = [{ role: "user", parts: [{ text: `${systemPrompt}\n\nCours :\n${content}` }] }];
+      contents = [{ role: "user", parts: [{ text: `${systemPrompt}\n\nCours :\n${content as string}` }] }];
     } else {
-      let base64Data = content.includes("base64,") ? content.split("base64,")[1] : content;
+      // Cas de tableau d'images (ou chaîne unique convertie en tableau)
+      const imagesArray = Array.isArray(content) ? content : [content];
+      
+      const parts: any[] = [{ text: systemPrompt }];
+      
+      // Ajouter toutes les pages au prompt
+      for (const imgBase64 of imagesArray) {
+          let cleanBase64 = imgBase64.includes("base64,") ? imgBase64.split("base64,")[1] : imgBase64;
+          parts.push({ inlineData: { mimeType: "image/jpeg", data: cleanBase64 } });
+      }
+
       contents = [{
         role: "user",
-        parts: [
-          { text: systemPrompt },
-          { inlineData: { mimeType: "image/jpeg", data: base64Data } }
-        ]
+        parts: parts
       }];
     }
 
