@@ -14,6 +14,9 @@ import Scan from './pages/Scan';
 import ScanHistory from './pages/ScanHistory';
 import StudyPack from './pages/StudyPack';
 import NotFound from './pages/NotFound';
+import Onboarding from './pages/Onboarding';
+import Signup from './pages/Signup';
+import Login from './pages/Login';
 
 declare global {
   interface Window {
@@ -26,120 +29,11 @@ function PrivateRoute({ children }: { children: React.ReactNode }) {
   
   if (loading) {
     return <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#003366]"></div>
     </div>;
   }
   
-  return user ? <>{children}</> : <Navigate to="/login" />;
-}
-
-function Login() {
-  const { user, signInWithGoogle, signInWithEmail, signUpWithEmail, error: authError } = useAuth();
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  if (user) {
-    return <Navigate to="/" />;
-  }
-
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
-    try {
-      if (isSignUp) {
-        await signUpWithEmail(email, password);
-      } else {
-        await signInWithEmail(email, password);
-      }
-    } catch (err: any) {
-      // Error is handled by AuthContext
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
-      <div className="bg-white p-8 rounded-3xl shadow-xl max-w-md w-full">
-        <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
-            <BookOpen size={32} />
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-1">CPLA 1er D</h1>
-          <p className="text-gray-500">Suivi des révisions</p>
-        </div>
-
-        {error && (
-          <div className="mb-6 p-3 bg-red-50 text-red-600 text-sm rounded-xl border border-red-100">
-            {error}
-          </div>
-        )}
-
-        <form onSubmit={handleEmailAuth} className="space-y-4 mb-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input 
-              type="email" 
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-              placeholder="eleve@exemple.com"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Mot de passe</label>
-            <input 
-              type="password" 
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-600 focus:border-transparent outline-none transition-all"
-              placeholder="••••••••"
-            />
-          </div>
-          <button 
-            type="submit" 
-            disabled={loading}
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            {loading ? 'Chargement...' : (isSignUp ? "Créer un compte" : "Se connecter")}
-          </button>
-        </form>
-
-        <div className="text-center mb-6">
-          <button 
-            type="button" 
-            onClick={() => setIsSignUp(!isSignUp)}
-            className="text-sm text-blue-600 font-medium hover:underline"
-          >
-            {isSignUp ? "Déjà un compte ? Se connecter" : "Pas de compte ? S'inscrire"}
-          </button>
-        </div>
-
-        <div className="relative mb-6">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200"></div>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-4 bg-white text-gray-500">Ou continuer avec</span>
-          </div>
-        </div>
-        
-        <button
-          onClick={() => signInWithGoogle()}
-          className="w-full flex items-center justify-center gap-2 bg-white border border-gray-200 text-gray-700 py-2.5 rounded-xl font-medium hover:bg-gray-50 transition-colors"
-        >
-          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" className="w-5 h-5" />
-          Google
-        </button>
-      </div>
-    </div>
-  );
+  return user ? <>{children}</> : <Navigate to="/onboarding" />;
 }
 
 function Layout({ children }: { children: React.ReactNode }) {
@@ -256,6 +150,8 @@ export default function App() {
       <AuthProvider>
         <Router>
           <Routes>
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
             <Route path="/curriculum" element={<PrivateRoute><Layout><Curriculum /></Layout></PrivateRoute>} />

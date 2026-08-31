@@ -7,6 +7,7 @@ import {
   GoogleAuthProvider, 
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signInWithCustomToken as firebaseSignInWithCustomToken,
   signOut,
   AuthError
 } from 'firebase/auth';
@@ -22,6 +23,7 @@ interface AuthContextType {
   signInWithGoogle: () => Promise<void>;
   signInWithEmail: (email: string, pass: string) => Promise<void>;
   signUpWithEmail: (email: string, pass: string) => Promise<void>;
+  signInWithCustomToken: (token: string) => Promise<void>;
   logOut: () => Promise<void>;
 }
 
@@ -188,6 +190,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const signInWithCustomToken = async (token: string) => {
+    setError(null);
+    try {
+      await firebaseSignInWithCustomToken(auth, token);
+    } catch (err) {
+      setError(getErrorMessage(err as AuthError));
+      throw err;
+    }
+  };
+
   const logOut = async () => {
     try {
       await signOut(auth);
@@ -199,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   return (
     <AuthContext.Provider value={{ 
       user, loading, error,
-      signInWithGoogle, signInWithEmail, signUpWithEmail, logOut 
+      signInWithGoogle, signInWithEmail, signUpWithEmail, signInWithCustomToken, logOut 
     }}>
       {children}
     </AuthContext.Provider>
