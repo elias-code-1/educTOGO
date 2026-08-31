@@ -1,0 +1,14 @@
+name: Keep Supabase Edge Functions Alive
+
+on:
+  schedule:
+    - cron: '0 6 */3 * *'
+  workflow_dispatch:
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping send-otp
+        run: curl -s -o /dev/null -w "%{http_code}" https://juzhdycmetbyohgfjbgs.supabase.co/functions/v1/send-otp -X POST -H "Content-Type: application/json" -d '{}'
+      - name: Ping check-payment-status
+        run: curl -s -o /dev/null -w "%{http_code}" https://juzhdycmetbyohgfjbgs.supabase.co/functions/v1/check-payment-status -X POST -H "Content-Type: application/json" -d '{}'
