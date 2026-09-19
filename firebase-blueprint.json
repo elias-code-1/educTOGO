@@ -88,9 +88,27 @@
         "imageCount": { "type": "number" }
       },
       "required": ["createdAt", "summary", "interactivePrompt", "exercises", "imageCount"]
+    },
+    "Student": {
+      "title": "Student",
+      "description": "Student profile with academic tracking",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "Student user ID" },
+        "classe": { "type": "string", "enum": ["Seconde", "Première", "Terminale"] },
+        "filiere": { "type": "string", "enum": ["Général", "Technique"] },
+        "serie": { "type": "string" },
+        "updatedAt": { "type": "timestamp" },
+        "createdAt": { "type": "timestamp" }
+      },
+      "required": ["classe", "filiere", "serie"]
     }
   },
   "firestore": {
+    "/students/{studentId}": {
+      "schema": { "$ref": "Student" },
+      "description": "Student academic profiles"
+    },
     "/users/{userId}": {
       "schema": { "$ref": "UserProfile" },
       "description": "User profiles"

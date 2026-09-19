@@ -106,7 +106,7 @@ export default function Signup() {
       }
 
       await signInWithCustomToken(data.token);
-      navigate('/');
+      navigate('/academic-setup');
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue lors de la création du compte.');
     } finally {

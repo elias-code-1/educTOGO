@@ -130,9 +130,31 @@ service cloud.firestore {
              data.imageCount is number && data.imageCount > 0 && data.imageCount <= 5;
     }
 
+    function isValidStudent() {
+      let allowed = ['uid', 'classe', 'filiere', 'serie', 'updatedAt', 'createdAt'];
+      let required = ['classe', 'filiere', 'serie'];
+      let data = request.resource.data;
+      
+      return hasOnlyAllowedFields(allowed) &&
+             hasRequiredFields(required) &&
+             (!('uid' in data) || (data.uid is string && data.uid.size() > 0 && data.uid.size() < 100)) &&
+             data.classe in ['Seconde', 'Première', 'Terminale'] &&
+             data.filiere in ['Général', 'Technique'] &&
+             data.serie is string && data.serie.size() > 0 && data.serie.size() < 50 &&
+             (!('updatedAt' in data) || data.updatedAt is timestamp) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
     // ===============================================================
     // Rules
     // ===============================================================
+
+    match /students/{studentId} {
+      allow read: if isOwner(studentId);
+      allow create: if isOwner(studentId) && isValidStudent() && uidUnchanged();
+      allow update: if isOwner(studentId) && isValidStudent() && uidNotModified();
+      allow delete: if isOwner(studentId);
+    }
 
     match /users/{userId} {
       allow read: if isOwner(userId);

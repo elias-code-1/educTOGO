@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db, handleFirestoreError, OperationType, storage } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { updateProfile } from 'firebase/auth';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { User as UserIcon, Mail, Calendar, LogOut, Save, Loader2, Trash2, AlertTriangle, Camera } from 'lucide-react';
+import { User as UserIcon, Mail, Calendar, LogOut, Save, Loader2, Trash2, AlertTriangle, Camera, GraduationCap, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
@@ -16,6 +17,7 @@ export default function Profile() {
   const [resetting, setResetting] = useState(false);
   const [message, setMessage] = useState({ type: '', text: '' });
   const [createdAt, setCreatedAt] = useState<Date | null>(null);
+  const [studentData, setStudentData] = useState<{ classe?: string; filiere?: string; serie?: string } | null>(null);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -35,6 +37,12 @@ export default function Profile() {
           if (data.createdAt) {
             setCreatedAt(data.createdAt.toDate());
           }
+        }
+
+        // Fetch student academic data
+        const studentDoc = await getDoc(doc(db, 'students', user.uid));
+        if (studentDoc.exists()) {
+          setStudentData(studentDoc.data() as any);
         }
       } catch (error) {
         console.error("Error fetching profile", error);
@@ -274,6 +282,55 @@ export default function Profile() {
               </button>
             </div>
           </form>
+        </div>
+
+        {/* Section Parcours Académique (Dynamic Scholastic) */}
+        <div className="bg-[#f7f9fb] p-8 border-t border-gray-100">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <div className="flex items-center gap-2 text-[#006e2f] font-bold text-xs uppercase tracking-wider">
+                <GraduationCap size={16} />
+                <span>Parcours Académique</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mt-1">Niveau & Série</h3>
+            </div>
+            <Link
+              to="/academic-setup"
+              className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#006e2f] text-white font-bold text-xs hover:bg-[#005725] transition-colors shadow-xs"
+            >
+              <span>{studentData ? 'Modifier' : 'Configurer'}</span>
+              <ChevronRight size={14} />
+            </Link>
+          </div>
+
+          <div className="bg-white rounded-2xl p-4 border border-gray-200/80 shadow-2xs">
+            {studentData && studentData.classe ? (
+              <div className="grid grid-cols-3 gap-3 text-center">
+                <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="text-[10px] uppercase font-bold text-gray-400">Classe</div>
+                  <div className="font-extrabold text-gray-900 mt-0.5 text-sm">{studentData.classe}</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-gray-50 border border-gray-100">
+                  <div className="text-[10px] uppercase font-bold text-gray-400">Filière</div>
+                  <div className="font-extrabold text-gray-900 mt-0.5 text-sm">{studentData.filiere}</div>
+                </div>
+                <div className="p-2.5 rounded-xl bg-[#eaf7ed] border border-[#006e2f]/20">
+                  <div className="text-[10px] uppercase font-bold text-[#006e2f]">Série</div>
+                  <div className="font-black text-[#006e2f] mt-0.5 text-sm">{studentData.serie}</div>
+                </div>
+              </div>
+            ) : (
+              <div className="py-2 text-center">
+                <p className="text-xs text-gray-500 mb-3">Aucun parcours configuré pour le moment.</p>
+                <Link
+                  to="/academic-setup"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#006e2f] text-white font-bold text-xs"
+                >
+                  Configurer ma classe et ma série
+                </Link>
+              </div>
+            )}
+          </div>
         </div>
         
         <div className="bg-gray-50 p-8 border-t border-gray-100 space-y-6">

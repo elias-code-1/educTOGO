@@ -17,6 +17,8 @@ import NotFound from './pages/NotFound';
 import Onboarding from './pages/Onboarding';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
+import AcademicSetup from './pages/AcademicSetup';
+import MatieresPlaceholder from './pages/MatieresPlaceholder';
 
 declare global {
   interface Window {
@@ -153,6 +155,9 @@ export default function App() {
             <Route path="/onboarding" element={<Onboarding />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/academic-setup" element={<PrivateRoute><AcademicSetup /></PrivateRoute>} />
+            <Route path="/select-academic" element={<Navigate to="/academic-setup" replace />} />
+            <Route path="/matieres" element={<PrivateRoute><MatieresPlaceholder /></PrivateRoute>} />
             <Route path="/" element={<PrivateRoute><Layout><Dashboard /></Layout></PrivateRoute>} />
             <Route path="/curriculum" element={<PrivateRoute><Layout><Curriculum /></Layout></PrivateRoute>} />
             <Route path="/analytics" element={<PrivateRoute><Layout><Analytics /></Layout></PrivateRoute>} />
