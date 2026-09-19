@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
-import { Phone, Lock, Loader2, AlertCircle } from 'lucide-react';
+import { Lock, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'motion/react';
+import { CountryCodeSelector } from '../components/CountryCodeSelector';
+import { DEFAULT_COUNTRY, Country, buildInternationalPhone } from '../data/countries';
 
 export default function Login() {
+  const [selectedCountry, setSelectedCountry] = useState<Country>(DEFAULT_COUNTRY);
   const [phone, setPhone] = useState('');
   const [pin, setPin] = useState('');
   
@@ -17,53 +20,62 @@ export default function Login() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!phone || phone.length < 8) {
-      setError("Veuillez entrer un numéro de téléphone valide.");
+    const cleanDigits = phone.replace(/\D/g, '');
+    if (!cleanDigits || cleanDigits.length < 8) {
+      setError('Veuillez entrer un numéro de téléphone valide.');
       return;
     }
     if (!pin || pin.length < 6) {
-      setError("Le code personnel doit contenir 6 chiffres.");
+      setError('Le code personnel doit contenir 6 chiffres.');
       return;
     }
+
+    const internationalPhone = buildInternationalPhone(selectedCountry.dialCode, cleanDigits);
 
     setLoading(true);
     setError(null);
     try {
       const { data, error: funcError } = await supabase.functions.invoke('login', {
-        body: { phone, pin }
+        body: { phone: internationalPhone, pin },
       });
-      
-      // Temporary workaround while edge functions are mock/empty
-      if (!data?.token && data?.status === 'ok') {
-        throw new Error("L'Edge Function login n'a pas renvoyé de token. Implémentation requise côté serveur.");
-      }
 
       if (funcError || !data?.token) {
-        throw new Error(data?.message || "Numéro de téléphone ou code personnel incorrect.");
+        throw new Error(data?.message || 'Numéro de téléphone ou code personnel incorrect.');
       }
 
       await signInWithCustomToken(data.token);
       navigate('/');
     } catch (err: any) {
-      setError(err.message || "Une erreur est survenue lors de la connexion.");
+      setError(err.message || 'Une erreur est survenue lors de la connexion.');
+      setPin('');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col justify-center px-6 relative">
+    <div className="min-h-screen bg-canvas flex flex-col justify-center px-6 py-8 relative">
       <div className="w-full max-w-sm mx-auto">
+        <div className="flex items-center justify-center gap-1.5 mb-6">
+          <div className="w-6 h-6 rounded-lg bg-brand flex items-center justify-center shadow-sm">
+            <span className="text-white text-xs font-bold">e</span>
+          </div>
+          <span className="font-extrabold text-sm tracking-tight text-gray-900">
+            edu<span className="text-brand">FRY</span>
+          </span>
+        </div>
+
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          className="bg-white p-8 rounded-3xl shadow-xl"
+          className="bg-white p-6 rounded-3xl shadow-xl border border-brand/5"
         >
-          <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Te revoilà !</h1>
-            <p className="text-gray-500 text-sm">
-              Connecte-toi pour retrouver ton avancement.
-            </p>
+          <div className="flex flex-col items-center text-center mb-5">
+            <div className="w-14 h-14 rounded-3xl bg-brand-light border border-brand/20 flex items-center justify-center text-brand shadow-sm mb-3">
+              <Lock size={24} />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">Content de te revoir</h1>
+            <p className="text-gray-500 text-[13px] mt-1">Connecte-toi pour retrouver ton avancement.</p>
           </div>
 
           {error && (
@@ -75,29 +87,26 @@ export default function Login() {
 
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 ml-1">
-                Numéro de téléphone
-              </label>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Numéro de téléphone</label>
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
-                  <Phone size={18} />
-                </div>
+                <CountryCodeSelector
+                  selectedCountry={selectedCountry}
+                  onSelectCountry={setSelectedCountry}
+                  disabled={loading}
+                />
                 <input
                   type="tel"
                   inputMode="numeric"
-                  required
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder="00000000"
-                  className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-[#003366] focus:border-transparent outline-none transition-all tracking-wide"
+                  onChange={e => setPhone(e.target.value.replace(/\D/g, ''))}
+                  className="w-full pl-[108px] pr-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 font-semibold focus:bg-white focus:ring-2 focus:ring-brand/40 focus:border-brand outline-none transition-all tracking-wide"
+                  placeholder="00 00 00 00"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 ml-1">
-                Code personnel
-              </label>
+              <label className="block text-[11px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 ml-1">Code personnel</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-gray-400">
                   <Lock size={18} />
@@ -106,11 +115,10 @@ export default function Login() {
                   type="password"
                   inputMode="numeric"
                   maxLength={6}
-                  required
                   value={pin}
-                  onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
-                  placeholder="6 chiffres"
-                  className="w-full pl-10 pr-4 py-3.5 rounded-xl bg-gray-50 border border-gray-200 text-gray-900 font-medium focus:bg-white focus:ring-2 focus:ring-[#003366] focus:border-transparent outline-none transition-all tracking-[0.2em]"
+                  onChange={e => setPin(e.target.value.replace(/\D/g, ''))}
+                  className="w-full pl-10 pr-4 py-3.5 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 font-semibold focus:bg-white focus:ring-2 focus:ring-brand/40 focus:border-brand outline-none transition-all tracking-[0.2em]"
+                  placeholder="••••••"
                 />
               </div>
             </div>
@@ -118,16 +126,16 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading || phone.length < 8 || pin.length < 6}
-              className="w-full bg-[#003366] text-white py-4 rounded-xl font-bold hover:bg-[#002244] transition-colors disabled:opacity-50 flex justify-center items-center gap-2 shadow-md mt-6"
+              className="w-full bg-brand text-white py-3.5 rounded-full font-bold hover:bg-brand-dark transition-colors disabled:opacity-50 flex justify-center items-center gap-2 shadow-md mt-6"
             >
-              {loading ? <Loader2 className="animate-spin" size={24} /> : "Se connecter"}
+              {loading ? <Loader2 className="animate-spin" size={22} /> : "Se connecter"}
             </button>
           </form>
-          
-          <div className="mt-8 text-center">
+
+          <div className="mt-5 text-center">
             <p className="text-sm text-gray-500">
               Nouveau sur l'application ?{' '}
-              <button onClick={() => navigate('/signup')} className="text-[#003366] font-bold hover:underline">
+              <button onClick={() => navigate('/signup')} className="text-brand font-bold hover:underline">
                 Inscris-toi
               </button>
             </p>

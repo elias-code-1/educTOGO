@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/* Design system "Dynamic Scholastic" (généré via Google Stitch) */
+@theme {
+  --color-brand: #006e2f;
+  --color-brand-dark: #005423;
+  --color-brand-light: #eaf7ed;
+  --color-canvas: #f7f9fb;
+}
+
 @layer utilities {
   .hide-scrollbar {
     -ms-overflow-style: none;
